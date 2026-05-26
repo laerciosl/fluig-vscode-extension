@@ -125,6 +125,10 @@ export async function pickWorkflowEvents(
 
 // ── Attribution mechanisms ─────────────────────────────────────────────────
 
+export async function getMechanisms(server: ServerDTO): Promise<AttributionMechanismDTO[]> {
+    return apiListMechanisms(server);
+}
+
 async function apiListMechanisms(server: ServerDTO): Promise<AttributionMechanismDTO[]> {
     const url = getRestUrl(server, MECHANISM_BASE_PATH, 'getCustomAttributionMechanismList');
 

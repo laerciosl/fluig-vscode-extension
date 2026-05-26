@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
-import { DatasetItem, ServerItem, ServerItemProvider } from '../providers/server-item.provider';
+import {
+    ServerItem,
+    DomainGroupItem,
+    ArtifactItem,
+    ServerItemProvider,
+} from '../providers/server-item.provider';
 import { checkServerConfigVersion } from '../server.service';
 
 export async function registerServerCommands(context: vscode.ExtensionContext): Promise<void> {
@@ -35,8 +40,12 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
             (serverItem: ServerItem) => serverItemProvider.delete(serverItem)
         ),
         vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.refreshDomainGroup',
+            (item: DomainGroupItem) => serverItemProvider.refresh(item)
+        ),
+        vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.datasetView',
-            (datasetItem: DatasetItem) => serverItemProvider.datasetView(datasetItem)
+            (item: DomainGroupItem | ArtifactItem) => serverItemProvider.queryDataset(item)
         )
     );
 }

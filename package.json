@@ -50,6 +50,12 @@
                 "category": "Fluig"
             },
             {
+                "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+                "title": "Atualizar",
+                "category": "Fluig",
+                "icon": "$(refresh)"
+            },
+            {
                 "command": "fluiggers-fluig-vscode-extension.newDataset",
                 "title": "Novo Dataset",
                 "category": "Fluig"
@@ -429,13 +435,26 @@
                     "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItem"
                 },
                 {
+                    "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/",
+                    "group": "inline"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/"
+                },
+                {
                     "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == DatasetItem",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup",
                     "group": "inline"
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == DatasetItem"
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.datasetView",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetArtifact"
                 }
             ]
         },
