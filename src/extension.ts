@@ -1,27 +1,34 @@
-import { ExtensionContext, workspace } from "vscode";
-import { TemplateExtension } from "./extensions/TemplateExtension";
-import { LibraryExtension } from "./extensions/LibraryExtension";
-import { DatasetExtension } from "./extensions/DatasetExtension";
-import { FormExtension } from "./extensions/FormExtension";
-import { WidgetExtension } from "./extensions/WidgetExtension";
-import { WorkflowExtension } from "./extensions/WorkflowExtension";
-import { GlobalEventExtension } from "./extensions/GlobalEventExtension";
-import { ServerExtension } from "./extensions/ServerExtension";
+import { ExtensionContext, Uri, workspace } from 'vscode';
+import { TemplateService } from './core/template.service';
+import { registerLibraryCommands } from './core/commands/library.commands';
+import { registerDatasetCommands } from './core/commands/dataset.commands';
+import { registerFormCommands } from './core/commands/form.commands';
+import { registerWidgetCommands } from './core/commands/widget.commands';
+import { registerWorkflowCommands } from './core/commands/workflow.commands';
+import { registerGlobalEventCommands } from './core/commands/global-event.commands';
+import { registerServerCommands } from './core/commands/server.commands';
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
-        throw new Error("É necessário estar em Workspace / Diretório.");
+        throw new Error('É necessário estar em Workspace / Diretório.');
     }
 
-    TemplateExtension.activate(context);
-    LibraryExtension.activate(context);
-    DatasetExtension.activate(context);
-    FormExtension.activate(context);
-    WidgetExtension.activate(context);
-    WorkflowExtension.activate(context);
-    GlobalEventExtension.activate(context);
-    ServerExtension.activate(context);
+    const templatesUri = Uri.joinPath(context.extensionUri, 'dist', 'templates');
+    TemplateService.templatesUri = templatesUri;
+    TemplateService.formEventsUri = Uri.joinPath(templatesUri, 'formEvents');
+    TemplateService.workflowEventsUri = Uri.joinPath(templatesUri, 'workflowEvents');
+    TemplateService.globalEventsUri = Uri.joinPath(templatesUri, 'globalEvents');
+    TemplateService.formEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.formEventsUri);
+    TemplateService.workflowEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.workflowEventsUri);
+    TemplateService.globalEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.globalEventsUri);
+
+    registerLibraryCommands(context);
+    registerDatasetCommands(context);
+    registerFormCommands(context);
+    registerWidgetCommands(context);
+    registerWorkflowCommands(context);
+    registerGlobalEventCommands(context);
+    await registerServerCommands(context);
 }
 
-export function deactivate() {
-}
+export function deactivate(): void {}

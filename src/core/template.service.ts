@@ -1,0 +1,32 @@
+import { Uri } from 'vscode';
+import { globSync } from 'glob';
+import { basename } from 'path';
+
+export class TemplateService {
+    public static templatesUri: Uri;
+    public static formEventsUri: Uri;
+    public static workflowEventsUri: Uri;
+    public static globalEventsUri: Uri;
+
+    public static formEventsNames: string[];
+    public static workflowEventsNames: string[];
+    public static globalEventsNames: string[];
+
+    static getTemplatesNameFromPath(templatesUri: Uri): string[] {
+        return globSync(Uri.joinPath(templatesUri, '*.js').path)
+            .map(filename => basename(filename, '.js'))
+            .sort((a, b) => a.localeCompare(b));
+    }
+
+    static createEmptyFunction(functionName: string): string {
+        return `/**
+ *
+ *
+ */
+function ${functionName}() {
+
+}
+
+`;
+    }
+}
