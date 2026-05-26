@@ -1,5 +1,5 @@
-import { ServerDTO } from '../../types/server.types';
-import { DatasetDTO, DatasetStructureDTO } from '../../fluig/datasets/dataset.types';
+import { ServerDTO } from '../types/server.types';
+import { DatasetDTO, DatasetStructureDTO } from './dataset.types';
 import { createAuthenticatedClientAsync, loginAndGetCookies } from '../hapi/login.client';
 import { getHost, getRestUrl } from '../hapi/http.client';
 

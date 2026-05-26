@@ -7,9 +7,13 @@ import { AttributionMechanismDTO } from './workflow.types';
 import { buildMechanismStructure, buildEventsPayload } from './workflow.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { loginAndGetCookies } from '../../sdk/hapi/login.client';
-import { getRestUrl, validateServerHasFluiggersWidget } from '../../sdk/hapi/http.client';
-import { apiGetLastWorkflowVersion, apiUpdateWorkflowEvents } from '../../sdk/workflow/workflow.api';
+import {
+    loginAndGetCookies,
+    getRestUrl,
+    validateServerHasFluiggersWidget,
+    apiGetLastWorkflowVersion,
+    apiUpdateWorkflowEvents,
+} from '@fluiggers/sdk';
 
 const MECHANISM_BASE_PATH = '/ecm/api/rest/ecm/mechanism/';
 

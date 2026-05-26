@@ -5,8 +5,7 @@ import { ServerDTO } from '../../types/server.types';
 import { GlobalEventDTO } from './global-event.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { loginAndGetCookies } from '../../sdk/hapi/login.client';
-import { getRestUrl } from '../../sdk/hapi/http.client';
+import { loginAndGetCookies, getRestUrl } from '@fluiggers/sdk';
 
 const BASE_PATH = '/ecm/api/rest/ecm/globalevent/';
 

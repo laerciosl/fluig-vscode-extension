@@ -1,0 +1,26 @@
+{
+    "name": "@fluiggers/sdk",
+    "version": "1.0.0",
+    "description": "SDK para integração com a plataforma TOTVS Fluig",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "typecheck": "tsc --noEmit"
+    },
+    "peerDependencies": {
+        "puppeteer-core": ">=24",
+        "soap": ">=1"
+    },
+    "peerDependenciesMeta": {
+        "puppeteer-core": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "typescript": "^5.4.5"
+    }
+}

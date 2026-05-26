@@ -1,5 +1,5 @@
-import { ServerDTO } from '../../types/server.types';
-import { JwtPayload } from '../../types/auth.types';
+import { ServerDTO } from '../types/server.types';
+import { JwtPayload } from '../types/auth.types';
 
 export function getHost(server: ServerDTO): string {
     const schema = server.ssl ? 'https' : 'http';
@@ -24,10 +24,6 @@ export function getRestUrl(
     return url;
 }
 
-/**
- * Preenche companyId e username do servidor a partir do payload JWT encontrado nos cookies.
- * Lança erro se o companyId divergir do valor já configurado.
- */
 export function fillServerFromJwtCookies(cookies: string, server: ServerDTO): void {
     if (!cookies) {
         return;

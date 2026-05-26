@@ -7,8 +7,7 @@ import { ServerDTO } from '../../types/server.types';
 import { WidgetFluiggersDTO } from './widget.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { loginAndGetCookies } from '../../sdk/hapi/login.client';
-import { getHost, validateServerHasFluiggersWidget } from '../../sdk/hapi/http.client';
+import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
 // ── Export ─────────────────────────────────────────────────────────────────
 

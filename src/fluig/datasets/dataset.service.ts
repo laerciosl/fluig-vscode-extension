@@ -14,7 +14,7 @@ import {
     apiGetDatasetResult,
     apiCreateDataset,
     apiUpdateDataset,
-} from '../../sdk/dataset/dataset.api';
+} from '@fluiggers/sdk';
 
 // ── Queries ────────────────────────────────────────────────────────────────
 

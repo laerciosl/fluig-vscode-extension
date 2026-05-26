@@ -1,4 +1,4 @@
-import { ServerDTO } from '../../types/server.types';
+import { ServerDTO } from '../types/server.types';
 import { loginAndGetCookies } from '../hapi/login.client';
 import { getHost } from '../hapi/http.client';
 

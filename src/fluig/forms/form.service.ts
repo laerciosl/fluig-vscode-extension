@@ -7,8 +7,7 @@ import { DocumentDTO, FormDTO, AttachmentDTO, CustomizationEventsDTO } from './f
 import { buildCreateFormParams, buildUpdateFormParams } from './form.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { createAuthenticatedClientAsync } from '../../sdk/hapi/login.client';
-import { getHost } from '../../sdk/hapi/http.client';
+import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
 function getServiceUri(server: ServerDTO): string {
     return `${getHost(server)}/webdesk/ECMCardIndexService?wsdl`;

@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import { ServerDTO } from '../../types/server.types';
 import { Server } from '../server.model';
 import { createOrUpdate } from '../server.service';
-import { clearCookies } from '../../sdk/hapi/login.client';
-import { getUser } from '../../sdk/hapi/user.client';
+import { clearCookies, getUser } from '@fluiggers/sdk';
 
 const compile = require('template-literal');
 

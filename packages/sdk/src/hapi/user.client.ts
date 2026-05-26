@@ -1,4 +1,4 @@
-import { ServerDTO } from '../../types/server.types';
+import { ServerDTO } from '../types/server.types';
 import { loginAndGetCookies } from './login.client';
 import { getRestUrl, fillServerFromJwtCookies } from './http.client';
 

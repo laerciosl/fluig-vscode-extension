@@ -1,4 +1,5 @@
-import { ExtensionContext, Uri, workspace } from 'vscode';
+import { ExtensionContext, Uri, workspace, window, ConfigurationTarget } from 'vscode';
+import { setBrowserPathProvider } from '@fluiggers/sdk';
 import { TemplateService } from './core/template.service';
 import { registerLibraryCommands } from './core/commands/library.commands';
 import { registerDatasetCommands } from './core/commands/dataset.commands';
@@ -13,6 +14,27 @@ export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
         throw new Error('É necessário estar em Workspace / Diretório.');
     }
+
+    setBrowserPathProvider(async () => {
+        const config = workspace.getConfiguration('fluiggers');
+        let customPath = config.get<string>('browserPath', '');
+        if (customPath) {
+            return customPath;
+        }
+        const fileUri = await window.showOpenDialog({
+            canSelectMany: false,
+            title: 'Selecione o executável do seu navegador para efetuar o Login',
+            openLabel: 'Selecionar',
+            filters: { Executables: ['exe', 'app', 'bin', 'sh'] },
+        });
+        if (fileUri?.[0]) {
+            customPath = fileUri[0].fsPath;
+            await config.update('browserPath', customPath, ConfigurationTarget.Global);
+            return customPath;
+        }
+        window.showErrorMessage('Preencha o caminho até o seu navegador nas configurações da Extensão Fluiggers!');
+        return '';
+    });
 
     const templatesUri = Uri.joinPath(context.extensionUri, 'dist', 'templates');
     TemplateService.templatesUri = templatesUri;

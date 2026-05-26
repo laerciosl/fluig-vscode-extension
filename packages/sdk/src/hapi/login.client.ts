@@ -1,9 +1,21 @@
-import { window, workspace, ConfigurationTarget } from 'vscode';
 import { Client, createClientAsync, IOptions } from 'soap';
-import { ServerDTO } from '../../types/server.types';
-import { CookieCache } from '../../types/auth.types';
+import { ServerDTO } from '../types/server.types';
+import { CookieCache } from '../types/auth.types';
 import { getHost } from './http.client';
 import * as puppeteer from 'puppeteer-core';
+
+// ── Browser path injection ────────────────────────────────────────────────────
+// The SDK has no dependency on VS Code. Callers (e.g. the VS Code extension)
+// inject how to resolve the browser executable path.
+
+type BrowserPathProvider = () => Promise<string>;
+let browserPathProvider: BrowserPathProvider = async () => '';
+
+export function setBrowserPathProvider(fn: BrowserPathProvider): void {
+    browserPathProvider = fn;
+}
+
+// ── Cookie cache ─────────────────────────────────────────────────────────────
 
 const cachedCookies: CookieCache = {};
 
@@ -49,6 +61,8 @@ export async function createAuthenticatedClientAsync(
 export function clearCookies(server: ServerDTO): void {
     delete cachedCookies[getCookiesKey(server)];
 }
+
+// ── Internals ─────────────────────────────────────────────────────────────────
 
 function getCookiesKey(server: ServerDTO): string {
     let key = String(server.hasBrowser) + server.host + server.port;
@@ -100,27 +114,12 @@ async function tryAuthenticate(server: ServerDTO): Promise<string> {
 }
 
 async function tryBrowserAuthenticate(server: ServerDTO): Promise<string> {
-    let browser: puppeteer.Browser | null = null;
-
-    const config = workspace.getConfiguration('fluiggers');
-    let customPath = config.get<string>('browserPath', '');
-
-    if (!customPath.length) {
-        const fileUri = await window.showOpenDialog({
-            canSelectMany: false,
-            title: 'Selecione o executável do seu navegador para efetuar o Login',
-            openLabel: 'Selecionar',
-            filters: { Executables: ['exe', 'app', 'bin', 'sh'] },
-        });
-
-        if (fileUri?.[0]) {
-            customPath = fileUri[0].fsPath;
-            await config.update('browserPath', customPath, ConfigurationTarget.Global);
-        } else {
-            window.showErrorMessage('Preencha o caminho até o seu navegador nas configurações da Extensão Fluiggers!');
-            return '';
-        }
+    const customPath = await browserPathProvider();
+    if (!customPath) {
+        return '';
     }
+
+    let browser: puppeteer.Browser | null = null;
 
     try {
         browser = await puppeteer.launch({

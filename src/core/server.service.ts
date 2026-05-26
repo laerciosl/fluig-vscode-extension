@@ -3,7 +3,7 @@ import { window, workspace, Uri, QuickPickItem } from 'vscode';
 import { getWorkspaceUri, generateRandomId } from './workspace.utils';
 import { ServerConfig, ServerDTO } from '../types/server.types';
 import { Server } from './server.model';
-import { getUser } from '../sdk/hapi/user.client';
+import { getUser } from '@fluiggers/sdk';
 
 const SERVER_CONFIG_VERSION = '1.0.0';
 
