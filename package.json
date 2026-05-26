@@ -181,6 +181,18 @@
                 }
             },
             {
+                "command": "fluiggers-fluig-vscode-extension.connectServer",
+                "title": "Conectar ao Servidor",
+                "category": "Fluig",
+                "icon": "$(plug)"
+            },
+            {
+                "command": "fluiggers-fluig-vscode-extension.disconnectServer",
+                "title": "Desconectar do Servidor",
+                "category": "Fluig",
+                "icon": "$(debug-disconnect)"
+            },
+            {
                 "command": "fluiggers-fluig-vscode-extension.exportDataset",
                 "title": "Exportar Dataset",
                 "category": "Fluig"
@@ -286,6 +298,14 @@
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.editServer",
+                    "when": "false"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.connectServer",
+                    "when": "false"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
                     "when": "false"
                 },
                 {
@@ -428,22 +448,44 @@
             ],
             "view/item/context": [
                 {
-                    "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItem",
-                    "group": "inline"
+                    "command": "fluiggers-fluig-vscode-extension.connectServer",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
+                    "group": "inline@1"
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.editServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItem",
-                    "group": "inline"
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+                    "group": "inline@2"
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItem"
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+                    "group": "inline@3"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.connectServer",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
+                    "group": "1_server@1"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
+                    "group": "1_server@1"
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.editServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItem"
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+                    "group": "1_server@2"
+                },
+                {
+                    "command": "fluiggers-fluig-vscode-extension.deleteServer",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+                    "group": "1_server@3"
                 },
                 {
                     "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
@@ -551,6 +593,13 @@
             {
                 "view": "fluiggers-fluig-vscode-extension.servers",
                 "contents": "Nenhum Servidor encontrado.\n[Adicionar Servidor](command:fluiggers-fluig-vscode-extension.addServer)"
+            }
+        ],
+        "languages": [
+            {
+                "id": "ftl",
+                "aliases": ["FreeMarker Template", "FTL", "ftl"],
+                "extensions": [".ftl"]
             }
         ],
         "snippets": [

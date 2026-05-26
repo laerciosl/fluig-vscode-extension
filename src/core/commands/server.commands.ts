@@ -5,7 +5,7 @@ import {
     ArtifactItem,
     ServerItemProvider,
 } from '../providers/server-item.provider';
-import { checkServerConfigVersion } from '../server.service';
+import { checkServerConfigVersion, setSelectedServer, clearSelectedServer } from '../server.service';
 
 export async function registerServerCommands(context: vscode.ExtensionContext): Promise<void> {
     if (!(await checkServerConfigVersion())) {
@@ -46,6 +46,14 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.datasetView',
             (item: DomainGroupItem | ArtifactItem) => serverItemProvider.queryDataset(item)
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.connectServer',
+            (serverItem: ServerItem) => setSelectedServer(serverItem.server.name)
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.disconnectServer',
+            (_serverItem: ServerItem) => clearSelectedServer()
         )
     );
 }

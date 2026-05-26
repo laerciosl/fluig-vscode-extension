@@ -18,7 +18,10 @@ import { logSuccess, logError, disposeOutput } from './core/output';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
-        throw new Error('É necessário estar em Workspace / Diretório.');
+        window.showWarningMessage(
+            'A extensão Fluiggers requer uma pasta ou Workspace aberto para funcionar.'
+        );
+        return;
     }
 
     setBrowserPathProvider(async () => {

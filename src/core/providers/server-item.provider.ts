@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ServerDTO } from '../../types/server.types';
 import { Server } from '../server.model';
-import { getServerConfig, getFileServerConfig, updateConfigPath } from '../server.service';
+import { getServerConfig, getFileServerConfig, updateConfigPath, onDidSelectServer, getSelectedServerName } from '../server.service';
 import { ServerView } from '../views/server.view';
 import { DatasetView } from '../views/dataset.view';
 import { getCustomDatasets } from '../../fluig/datasets/dataset.service';
@@ -41,17 +41,27 @@ export class ServerItem extends vscode.TreeItem {
         public context: vscode.ExtensionContext,
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public server: ServerDTO
+        public server: ServerDTO,
+        isConnected = false
     ) {
         super(label, collapsibleState);
+
+        this.contextValue = isConnected ? 'serverItemConnected' : 'serverItemDisconnected';
+
+        if (isConnected) {
+            this.description = '● conectado';
+            this.tooltip = `${label} — servidor ativo`;
+            this.iconPath = new vscode.ThemeIcon(
+                'circle-filled',
+                new vscode.ThemeColor('testing.iconPassed')
+            );
+        } else {
+            this.iconPath = {
+                light: vscode.Uri.joinPath(context.extensionUri, 'dist', 'images', 'light', 'server-environment.svg'),
+                dark: vscode.Uri.joinPath(context.extensionUri, 'dist', 'images', 'dark', 'server-environment.svg'),
+            };
+        }
     }
-
-    iconPath = {
-        light: vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'images', 'light', 'server-environment.svg'),
-        dark: vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'images', 'dark', 'server-environment.svg'),
-    };
-
-    contextValue = 'serverItem';
 }
 
 export class DomainGroupItem extends vscode.TreeItem {
@@ -107,6 +117,11 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
 
     constructor(public context: vscode.ExtensionContext) {
         this.watchConfigFile();
+
+        onDidSelectServer(() => {
+            this.serverItems = this.buildServerItems();
+            this.refresh();
+        });
     }
 
     public getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -223,6 +238,7 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
 
     private buildServerItems(): ServerItem[] {
         const serverConfig = getServerConfig();
+        const connectedName = getSelectedServerName();
 
         return serverConfig.configurations
             .map(
@@ -231,7 +247,8 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
                         this.context,
                         element.name,
                         vscode.TreeItemCollapsibleState.Collapsed,
-                        element
+                        element,
+                        element.name === connectedName
                     )
             )
             .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
