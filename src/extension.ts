@@ -12,6 +12,7 @@ import { registerGlobalEventCommands } from './core/commands/global-event.comman
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
+import { registerRuntimeCommands } from './core/commands/runtime.commands';
 import { onDidChangeSyncState, getStatus } from './core/sync-state';
 import { logSuccess, logError, disposeOutput } from './core/output';
 
@@ -72,6 +73,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     registerGlobalEventCommands(context);
     await registerServerCommands(context);
     registerWatchMode(context);
+    registerRuntimeCommands(context);
 }
 
 export function deactivate(): void {}
