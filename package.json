@@ -45,6 +45,11 @@
                 "category": "Fluig"
             },
             {
+                "command": "fluiggers-fluig-vscode-extension.toggleAutoExport",
+                "title": "Alternar Auto Export ao Salvar",
+                "category": "Fluig"
+            },
+            {
                 "command": "fluiggers-fluig-vscode-extension.newDataset",
                 "title": "Novo Dataset",
                 "category": "Fluig"
@@ -548,6 +553,12 @@
                         "description": "Caminho do seu Arquivo de Configuração de Servidores",
                         "default": "",
                         "scope": "machine"
+                    },
+                    "fluiggers.autoExportOnSave": {
+                        "type": "boolean",
+                        "description": "Exporta automaticamente o artefato Fluig ao salvar o arquivo (datasets, formulários, eventos, processos, mecanismos, widgets)",
+                        "default": false,
+                        "scope": "resource"
                     }
                 }
             }

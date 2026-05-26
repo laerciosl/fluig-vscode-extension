@@ -7,6 +7,7 @@ import { registerWidgetCommands } from './core/commands/widget.commands';
 import { registerWorkflowCommands } from './core/commands/workflow.commands';
 import { registerGlobalEventCommands } from './core/commands/global-event.commands';
 import { registerServerCommands } from './core/commands/server.commands';
+import { registerWatchMode } from './core/watch';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
@@ -29,6 +30,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     registerWorkflowCommands(context);
     registerGlobalEventCommands(context);
     await registerServerCommands(context);
+    registerWatchMode(context);
 }
 
 export function deactivate(): void {}
