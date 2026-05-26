@@ -1,12 +1,18 @@
 import * as vscode from 'vscode';
+import { basename } from 'path';
 import { exportOne as exportDataset } from '../fluig/datasets/dataset.service';
 import { exportOne as exportForm } from '../fluig/forms/form.service';
 import { exportOne as exportGlobalEvent } from '../fluig/events/global-event.service';
 import { updateWorkflowEvents, exportMechanism } from '../fluig/workflow/workflow.service';
 import { exportWidget } from '../fluig/widgets/widget.service';
 import { checkModified } from './sync-state';
+import { enqueue } from './deploy-queue';
+import { logInfo } from './output';
 
 const CONFIG_KEY = 'autoExportOnSave';
+const DEBOUNCE_MS = 500;
+
+const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function isEnabled(): boolean {
     return vscode.workspace.getConfiguration('fluiggers').get<boolean>(CONFIG_KEY, false);
@@ -24,22 +30,41 @@ function updateStatusBar(item: vscode.StatusBarItem): void {
     }
 }
 
-function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): void {
+async function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): Promise<void> {
     const path = fileUri.path;
 
     if (/[/\\]datasets[/\\].+$/.test(path)) {
-        void exportDataset(fileUri);
+        await exportDataset(fileUri);
     } else if (/[/\\]events[/\\].+$/.test(path)) {
-        void exportGlobalEvent(fileUri);
+        await exportGlobalEvent(fileUri);
     } else if (/[/\\]workflow[/\\]scripts[/\\].+\.js$/.test(path)) {
-        void updateWorkflowEvents(fileUri);
+        await updateWorkflowEvents(fileUri);
     } else if (/[/\\]mechanisms[/\\].+$/.test(path)) {
-        void exportMechanism(fileUri);
+        await exportMechanism(fileUri);
     } else if (/[/\\]forms[/\\].+$/.test(path)) {
-        void exportForm(context, fileUri);
+        await exportForm(context, fileUri);
     } else if (/[/\\]widget[/\\].+$/.test(path)) {
-        void exportWidget(fileUri);
+        await exportWidget(fileUri);
     }
+}
+
+function scheduleExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): void {
+    const key = fileUri.fsPath;
+    const existing = debounceTimers.get(key);
+    if (existing) {
+        clearTimeout(existing);
+    }
+
+    const timer = setTimeout(() => {
+        debounceTimers.delete(key);
+        const name = basename(key);
+        enqueue(async () => {
+            logInfo(`Exportando: ${name}`);
+            await resolveExport(fileUri, context);
+        });
+    }, DEBOUNCE_MS);
+
+    debounceTimers.set(key, timer);
 }
 
 export function registerWatchMode(context: vscode.ExtensionContext): void {
@@ -68,7 +93,7 @@ export function registerWatchMode(context: vscode.ExtensionContext): void {
             if (!isEnabled()) {
                 return;
             }
-            resolveExport(document.uri, context);
+            scheduleExport(document.uri, context);
         })
     );
 }

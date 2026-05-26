@@ -1,5 +1,6 @@
 import { ExtensionContext, Uri, workspace, window, ConfigurationTarget } from 'vscode';
 import * as vscode from 'vscode';
+import { basename } from 'path';
 import { setBrowserPathProvider } from '@fluiggers/sdk';
 import { TemplateService } from './core/template.service';
 import { registerLibraryCommands } from './core/commands/library.commands';
@@ -11,6 +12,8 @@ import { registerGlobalEventCommands } from './core/commands/global-event.comman
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
+import { onDidChangeSyncState, getStatus } from './core/sync-state';
+import { logSuccess, logError, disposeOutput } from './core/output';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
@@ -48,7 +51,17 @@ export async function activate(context: ExtensionContext): Promise<void> {
     TemplateService.globalEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.globalEventsUri);
 
     context.subscriptions.push(
-        vscode.window.registerFileDecorationProvider(new SyncDecorationProvider())
+        vscode.window.registerFileDecorationProvider(new SyncDecorationProvider()),
+        onDidChangeSyncState(uri => {
+            const status = getStatus(uri);
+            const name = basename(uri.fsPath);
+            if (status === 'synced') {
+                logSuccess(`Sincronizado: ${name}`);
+            } else if (status === 'error') {
+                logError(`Falha ao exportar: ${name}`);
+            }
+        }),
+        { dispose: disposeOutput }
     );
 
     registerLibraryCommands(context);
