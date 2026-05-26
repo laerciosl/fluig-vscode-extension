@@ -1,0 +1,7 @@
+{
+    "columns": ["userId", "userName", "userEmail"],
+    "values": [
+        { "value": [{ "$value": "001" }, { "$value": "Admin" }, { "$value": "admin@co.com" }] },
+        { "value": [{ "$value": "002" }, { "$value": "User" },  { "$value": "user@co.com" }] }
+    ]
+}

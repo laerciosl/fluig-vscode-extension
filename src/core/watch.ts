@@ -12,6 +12,18 @@ import { logInfo } from './output';
 const CONFIG_KEY = 'autoExportOnSave';
 const DEBOUNCE_MS = 500;
 
+export type ExportType = 'dataset' | 'form' | 'globalEvent' | 'workflow' | 'mechanism' | 'widget';
+
+export function resolveExportType(filePath: string): ExportType | null {
+    if (/[/\\]datasets[/\\].+$/.test(filePath))                  return 'dataset';
+    if (/[/\\]forms[/\\].+$/.test(filePath))                     return 'form';       // antes de events
+    if (/[/\\]events[/\\].+$/.test(filePath))                    return 'globalEvent';
+    if (/[/\\]workflow[/\\]scripts[/\\].+\.js$/.test(filePath))  return 'workflow';
+    if (/[/\\]mechanisms[/\\].+$/.test(filePath))                return 'mechanism';
+    if (/[/\\]widget[/\\].+$/.test(filePath))                    return 'widget';
+    return null;
+}
+
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function isEnabled(): boolean {
@@ -31,20 +43,13 @@ function updateStatusBar(item: vscode.StatusBarItem): void {
 }
 
 async function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): Promise<void> {
-    const path = fileUri.path;
-
-    if (/[/\\]datasets[/\\].+$/.test(path)) {
-        await exportDataset(fileUri);
-    } else if (/[/\\]events[/\\].+$/.test(path)) {
-        await exportGlobalEvent(fileUri);
-    } else if (/[/\\]workflow[/\\]scripts[/\\].+\.js$/.test(path)) {
-        await updateWorkflowEvents(fileUri);
-    } else if (/[/\\]mechanisms[/\\].+$/.test(path)) {
-        await exportMechanism(fileUri);
-    } else if (/[/\\]forms[/\\].+$/.test(path)) {
-        await exportForm(context, fileUri);
-    } else if (/[/\\]widget[/\\].+$/.test(path)) {
-        await exportWidget(fileUri);
+    switch (resolveExportType(fileUri.path)) {
+        case 'dataset':    await exportDataset(fileUri); break;
+        case 'globalEvent': await exportGlobalEvent(fileUri); break;
+        case 'workflow':   await updateWorkflowEvents(fileUri); break;
+        case 'mechanism':  await exportMechanism(fileUri); break;
+        case 'form':       await exportForm(context, fileUri); break;
+        case 'widget':     await exportWidget(fileUri); break;
     }
 }
 

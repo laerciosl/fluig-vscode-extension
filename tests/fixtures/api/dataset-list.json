@@ -1,0 +1,5 @@
+[
+    { "datasetId": "dsUsuario", "datasetDescription": "Usuários do sistema", "type": "CUSTOM" },
+    { "datasetId": "dsEmpresa", "datasetDescription": "Empresas cadastradas", "type": "CUSTOM" },
+    { "datasetId": "colleague",  "datasetDescription": "Colegas",              "type": "INTERNAL" }
+]
