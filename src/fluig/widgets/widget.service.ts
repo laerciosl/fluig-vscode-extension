@@ -7,6 +7,7 @@ import { ServerDTO } from '../../types/server.types';
 import { WidgetFluiggersDTO } from './widget.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
+import { markSynced, markError } from '../../core/sync-state';
 import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
 // ── Export ─────────────────────────────────────────────────────────────────
@@ -52,17 +53,23 @@ export async function exportWidget(fileUri: Uri): Promise<void> {
                 const response: any = await uploadWarFile(server, `${widgetName}.war`, content);
 
                 if (response.message) {
+                    markError(fileUri);
                     window.showErrorMessage(response.message.message);
                 } else {
+                    markSynced(fileUri);
                     window.showInformationMessage(
                         'Widget enviada com sucesso. Você será notificado assim que a instalação/atualização for concluída.'
                     );
                 }
             } catch (error: any) {
+                markError(fileUri);
                 window.showErrorMessage(error.message || error);
             }
         })
-        .catch(error => window.showErrorMessage(error.message || error));
+        .catch(error => {
+            markError(fileUri);
+            window.showErrorMessage(error.message || error);
+        });
 }
 
 export async function exportFluiggersWidget(): Promise<void> {

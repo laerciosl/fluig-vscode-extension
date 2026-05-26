@@ -6,6 +6,7 @@ import { ServerDTO } from '../../types/server.types';
 import { AttributionMechanismDTO } from './workflow.types';
 import { buildMechanismStructure, buildEventsPayload } from './workflow.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
+import { markSynced, markError } from '../../core/sync-state';
 import { getSelect } from '../../core/server.service';
 import {
     loginAndGetCookies,
@@ -93,15 +94,19 @@ export async function updateWorkflowEvents(eventUri: Uri): Promise<void> {
             buildEventsPayload(eventsToUpdate)
         );
 
+        const eventUris = eventsToUpdate.map(e => Uri.file(e.path));
         if (!response.hasError) {
+            eventUris.forEach(u => markSynced(u));
             window.showInformationMessage('Todos os eventos foram atualizados');
         } else {
+            eventUris.forEach(u => markError(u));
             window.showWarningMessage('Ocorreram erros ao atualizar os eventos', {
                 detail: response.errors.join('\n'),
                 modal: true,
             });
         }
     } catch (error: any) {
+        markError(eventUri);
         window.showErrorMessage(error.message || error);
     }
 }
@@ -358,10 +363,12 @@ export async function exportMechanism(fileUri: Uri): Promise<void> {
         : await apiUpdateMechanism(server, mechanismStructure);
 
     if (result?.content === 'OK') {
+        markSynced(fileUri);
         window.showInformationMessage(
             `Mecanismo Customizado ${mechanismId} exportado com sucesso!`
         );
     } else {
+        markError(fileUri);
         window.showErrorMessage(
             `Falha ao exportar o Mecanismo Customizado ${mechanismId}!\n${result?.message?.message}`
         );

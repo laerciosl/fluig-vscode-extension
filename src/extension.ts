@@ -1,4 +1,5 @@
 import { ExtensionContext, Uri, workspace, window, ConfigurationTarget } from 'vscode';
+import * as vscode from 'vscode';
 import { setBrowserPathProvider } from '@fluiggers/sdk';
 import { TemplateService } from './core/template.service';
 import { registerLibraryCommands } from './core/commands/library.commands';
@@ -9,6 +10,7 @@ import { registerWorkflowCommands } from './core/commands/workflow.commands';
 import { registerGlobalEventCommands } from './core/commands/global-event.commands';
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
+import { SyncDecorationProvider } from './core/file-decoration';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     if (!workspace.workspaceFolders) {
@@ -44,6 +46,10 @@ export async function activate(context: ExtensionContext): Promise<void> {
     TemplateService.formEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.formEventsUri);
     TemplateService.workflowEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.workflowEventsUri);
     TemplateService.globalEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.globalEventsUri);
+
+    context.subscriptions.push(
+        vscode.window.registerFileDecorationProvider(new SyncDecorationProvider())
+    );
 
     registerLibraryCommands(context);
     registerDatasetCommands(context);

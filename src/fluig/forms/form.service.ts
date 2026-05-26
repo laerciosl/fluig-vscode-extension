@@ -7,6 +7,7 @@ import { DocumentDTO, FormDTO, AttachmentDTO, CustomizationEventsDTO } from './f
 import { buildCreateFormParams, buildUpdateFormParams } from './form.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
+import { markSynced, markError } from '../../core/sync-state';
 import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
 function getServiceUri(server: ServerDTO): string {
@@ -198,13 +199,16 @@ export async function exportOne(context: ExtensionContext, fileUri: Uri): Promis
 
         const message = response[0]?.result?.item?.webServiceMessage;
         if (message === 'ok') {
+            markSynced(fileUri);
             window.showInformationMessage(`Formulário ${formName} exportado com sucesso!`);
         } else {
+            markError(fileUri);
             window.showErrorMessage(
                 message || 'Verifique o id da Pasta onde irá salvar o Formulário!'
             );
         }
     } catch {
+        markError(fileUri);
         window.showErrorMessage('Erro ao exportar Formulário.');
     }
 }

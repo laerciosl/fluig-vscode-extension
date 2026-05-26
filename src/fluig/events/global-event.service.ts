@@ -5,6 +5,7 @@ import { ServerDTO } from '../../types/server.types';
 import { GlobalEventDTO } from './global-event.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
+import { markSynced, markError } from '../../core/sync-state';
 import { loginAndGetCookies, getRestUrl } from '@fluiggers/sdk';
 
 const BASE_PATH = '/ecm/api/rest/ecm/globalevent/';
@@ -141,8 +142,10 @@ export async function exportOne(fileUri: Uri): Promise<void> {
     const result: any = await apiSaveEventList(server, globalEvents);
 
     if (result?.content === 'OK') {
+        markSynced(fileUri);
         window.showInformationMessage(`Evento Global ${globalEventId} exportado com sucesso!`);
     } else {
+        markError(fileUri);
         window.showErrorMessage(
             `Falha ao exportar o Evento Global ${globalEventId}!\n${result?.message?.message}`
         );

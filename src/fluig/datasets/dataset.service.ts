@@ -8,6 +8,7 @@ import { mapDatasetResult } from './dataset.mapper';
 import { promptUniqueDatasetId } from './dataset.validator';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
+import { markSynced, markError } from '../../core/sync-state';
 import {
     apiFindAllDatasets,
     apiLoadDataset,
@@ -191,8 +192,10 @@ export async function exportOne(fileUri: Uri): Promise<void> {
         : await apiUpdateDataset(server, datasetStructure);
 
     if (result.content === 'OK') {
+        markSynced(fileUri);
         window.showInformationMessage(`Dataset ${datasetId} exportado com sucesso!`);
     } else {
+        markError(fileUri);
         window.showErrorMessage(`Falha ao exportar o dataset ${datasetId}!\n${result.message.message}`);
     }
 }

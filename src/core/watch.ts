@@ -4,6 +4,7 @@ import { exportOne as exportForm } from '../fluig/forms/form.service';
 import { exportOne as exportGlobalEvent } from '../fluig/events/global-event.service';
 import { updateWorkflowEvents, exportMechanism } from '../fluig/workflow/workflow.service';
 import { exportWidget } from '../fluig/widgets/widget.service';
+import { checkModified } from './sync-state';
 
 const CONFIG_KEY = 'autoExportOnSave';
 
@@ -63,6 +64,7 @@ export function registerWatchMode(context: vscode.ExtensionContext): void {
             }
         }),
         vscode.workspace.onDidSaveTextDocument(document => {
+            checkModified(document.uri);
             if (!isEnabled()) {
                 return;
             }
