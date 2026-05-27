@@ -304,6 +304,23 @@ export async function saveFile(name: string, content: string, openFile = true, s
     }
 }
 
+// ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
+
+export async function importDatasetFromTree(server: ServerDTO, datasetId: string): Promise<void> {
+    logInfo(`Importando dataset: ${datasetId} ← ${server.name}`);
+    const dataset: any = await apiLoadDataset(server, datasetId);
+    const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
+    const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
+
+    if (existing.length === 1) {
+        await workspace.fs.writeFile(Uri.file(existing[0]), Buffer.from(dataset.datasetImpl, 'utf-8'));
+        window.showTextDocument(Uri.file(existing[0]));
+        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
+    } else {
+        await saveFile(datasetId, dataset.datasetImpl, true, server.name);
+    }
+}
+
 // ── QuickPick helpers ──────────────────────────────────────────────────────
 
 export async function pickDataset(server: ServerDTO): Promise<any> {

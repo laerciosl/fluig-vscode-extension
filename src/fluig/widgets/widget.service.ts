@@ -10,6 +10,7 @@ import { getSelect } from '../../core/server.service';
 import { Server } from '../../core/server.model';
 import { markSynced, markError } from '../../core/sync-state';
 import { logInfo, logSuccess } from '../../core/output';
+import { emitSuccess } from '../../core/event-bus';
 import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
 // ── Export ─────────────────────────────────────────────────────────────────
@@ -111,6 +112,38 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
     } catch (error: any) {
         window.showErrorMessage(error.message || error);
     }
+}
+
+// ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
+
+export async function importWidgetFromTree(server: ServerDTO, widget: WidgetFluiggersDTO): Promise<void> {
+    logInfo(`Importando widget: ${widget.code} ← ${server.name}`);
+    const widgetUri = Uri.joinPath(getWorkspaceUri(), 'wcm', 'widget', widget.code);
+
+    try {
+        await workspace.fs.delete(widgetUri, { recursive: true, useTrash: true });
+    } catch {
+        // widget not present locally — ok
+    }
+
+    const zipFile = await JSZip.loadAsync(await downloadWidgetFile(server, widget.filename));
+    zipFile.forEach(async (relativePath, file) => {
+        if (file.dir) {
+            return;
+        }
+        const fileUri = resolveImportUri(widgetUri, relativePath);
+        if (!fileUri) {
+            return;
+        }
+        try {
+            await workspace.fs.writeFile(fileUri, await file.async('uint8array'));
+        } catch (err: any) {
+            window.showWarningMessage(err);
+        }
+    });
+
+    logSuccess(`Widget importada: ${widget.code}`);
+    emitSuccess({ kind: 'widget', operation: 'import', name: widget.code, serverName: server.name });
 }
 
 // ── Import ─────────────────────────────────────────────────────────────────

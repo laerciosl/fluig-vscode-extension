@@ -1,0 +1,14 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"skipLibCheck": true
+	},
+	"exclude": [
+		"node_modules",
+		".vscode-test",
+		"packages",
+		"tests",
+		"vitest.config.ts"
+	]
+}

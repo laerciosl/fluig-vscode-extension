@@ -1,9 +1,25 @@
 import * as vscode from 'vscode';
 import { createForm, createFormEvent } from '../generators/form.generator';
-import { importOne, importMany, exportOne } from '../../fluig/forms/form.service';
+import { importOne, importMany, exportOne, importFormFromTree } from '../../fluig/forms/form.service';
+import { FormProvider, FormItem } from '../providers/form.provider';
 
 export function registerFormCommands(context: vscode.ExtensionContext): void {
+    const provider = new FormProvider();
+    vscode.window.registerTreeDataProvider('fluiggers-fluig-vscode-extension.forms', provider);
+
     context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.refreshForms',
+            () => provider.refresh()
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.importFormItem',
+            async (item: FormItem) => {
+                const server = provider.currentServer();
+                if (!server) { vscode.window.showWarningMessage('Conecte a um servidor.'); return; }
+                await importFormFromTree(server, item.form);
+            }
+        ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.newForm',
             createForm

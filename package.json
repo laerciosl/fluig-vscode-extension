@@ -260,6 +260,50 @@
 			{
 				"command": "fluiggers-fluig-vscode-extension.testConnection",
 				"title": "Fluig: Testar Conexão"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshDatasets",
+				"title": "Fluig: Atualizar Datasets",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importDatasetItem",
+				"title": "Importar Dataset"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.queryDatasetItem",
+				"title": "Consultar Dataset"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshForms",
+				"title": "Fluig: Atualizar Formulários",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importFormItem",
+				"title": "Importar Formulário"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshWidgets",
+				"title": "Fluig: Atualizar Widgets",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importWidgetItem",
+				"title": "Importar Widget"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshWorkflows",
+				"title": "Fluig: Atualizar Workflows",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWorkflowProcess",
+				"title": "Exportar Eventos do Processo"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWorkflowEventItem",
+				"title": "Exportar Evento"
 			}
 		],
 		"menus": {
@@ -448,6 +492,26 @@
 					"command": "fluiggers-fluig-vscode-extension.refreshServer",
 					"when": "view == fluiggers-fluig-vscode-extension.servers",
 					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshDatasets",
+					"when": "view == fluiggers-fluig-vscode-extension.datasets",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshForms",
+					"when": "view == fluiggers-fluig-vscode-extension.forms",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshWidgets",
+					"when": "view == fluiggers-fluig-vscode-extension.widgets",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshWorkflows",
+					"when": "view == fluiggers-fluig-vscode-extension.workflows",
+					"group": "navigation"
 				}
 			],
 			"view/item/context": [
@@ -522,6 +586,31 @@
 					"command": "fluiggers-fluig-vscode-extension.testConnection",
 					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
 					"group": "1_server@10"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importDatasetItem",
+					"when": "view == fluiggers-fluig-vscode-extension.datasets && viewItem == fluigDatasetItem",
+					"group": "1_import@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.queryDatasetItem",
+					"when": "view == fluiggers-fluig-vscode-extension.datasets && viewItem == fluigDatasetItem",
+					"group": "2_query@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importFormItem",
+					"when": "view == fluiggers-fluig-vscode-extension.forms && viewItem == fluigFormItem",
+					"group": "1_import@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importWidgetItem",
+					"when": "view == fluiggers-fluig-vscode-extension.widgets && viewItem == fluigWidgetItem",
+					"group": "1_import@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportWorkflowEventItem",
+					"when": "view == fluiggers-fluig-vscode-extension.workflows && viewItem == fluigWorkflowEvent",
+					"group": "1_export@1"
 				}
 			]
 		},
@@ -600,6 +689,26 @@
 					"id": "fluiggers-fluig-vscode-extension.servers",
 					"name": "Servidores",
 					"icon": "dist/images/icon-brand.png"
+				},
+				{
+					"id": "fluiggers-fluig-vscode-extension.datasets",
+					"name": "Datasets",
+					"icon": "dist/images/icon-brand.png"
+				},
+				{
+					"id": "fluiggers-fluig-vscode-extension.forms",
+					"name": "Formulários",
+					"icon": "dist/images/icon-brand.png"
+				},
+				{
+					"id": "fluiggers-fluig-vscode-extension.workflows",
+					"name": "Workflows",
+					"icon": "dist/images/icon-brand.png"
+				},
+				{
+					"id": "fluiggers-fluig-vscode-extension.widgets",
+					"name": "Widgets",
+					"icon": "dist/images/icon-brand.png"
 				}
 			]
 		},
@@ -676,10 +785,11 @@
 		"pretest": "npm run test-compile && npm run lint",
 		"lint": "eslint src --ext ts",
 		"test": "node ./out/test/runTest.js",
-		"test:unit": "vitest run tests/unit",
-		"test:integration": "vitest run tests/integration",
+		"test:unit": "npm run typecheck && vitest run tests/unit",
+		"test:integration": "npm run typecheck && vitest run tests/integration",
 		"test:watch": "vitest tests/unit",
-		"test:coverage": "vitest run --coverage"
+		"test:coverage": "vitest run --coverage",
+		"typecheck": "tsc -p tsconfig.typecheck.json"
 	},
 	"devDependencies": {
 		"@popperjs/core": "^2.11.8",

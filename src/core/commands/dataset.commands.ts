@@ -8,11 +8,36 @@ import {
     importMany,
     exportOne,
     exportFromFolder,
+    importDatasetFromTree,
 } from '../../fluig/datasets/dataset.service';
 import { getWorkspaceUri } from '../workspace.utils';
+import { DatasetProvider, DatasetItem } from '../providers/dataset.provider';
 
 export function registerDatasetCommands(context: vscode.ExtensionContext): void {
+    const provider = new DatasetProvider();
+    vscode.window.registerTreeDataProvider('fluiggers-fluig-vscode-extension.datasets', provider);
+
     context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.refreshDatasets',
+            () => provider.refresh()
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.importDatasetItem',
+            async (item: DatasetItem) => {
+                const server = provider.currentServer() ?? await getSelect();
+                if (!server) { return; }
+                await importDatasetFromTree(server, item.dataset.datasetId);
+            }
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.queryDatasetItem',
+            (item: DatasetItem) => {
+                const server = provider.currentServer();
+                if (!server) { vscode.window.showWarningMessage('Conecte a um servidor.'); return; }
+                new DatasetView(context, server).show();
+            }
+        ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.newDataset',
             createDataset

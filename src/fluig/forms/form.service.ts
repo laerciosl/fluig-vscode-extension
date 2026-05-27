@@ -9,6 +9,7 @@ import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { markSynced, markError } from '../../core/sync-state';
 import { logInfo, logSuccess } from '../../core/output';
+import { emitSuccess } from '../../core/event-bus';
 import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
 function getServiceUri(server: ServerDTO): string {
@@ -81,6 +82,14 @@ export function getCustomizationEvents(
         .then(client => client.getCustomizationEventsAsync(params))
         .then(response => response[0]?.result?.item || [])
         .then(items => (Array.isArray(items) ? items : [items]));
+}
+
+// ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
+
+export async function importFormFromTree(server: ServerDTO, form: DocumentDTO): Promise<void> {
+    logInfo(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
+    await writeFormFiles(server, form, getWorkspaceUri());
+    emitSuccess({ kind: 'form', operation: 'import', name: form.documentDescription, serverName: server.name });
 }
 
 // ── Import ─────────────────────────────────────────────────────────────────
