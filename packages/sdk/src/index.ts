@@ -18,6 +18,7 @@ export {
     createAuthenticatedClientAsync,
     clearCookies,
     setBrowserPathProvider,
+    fetchWithAuth,
 } from './hapi/login.client';
 
 // User

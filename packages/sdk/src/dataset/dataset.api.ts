@@ -1,14 +1,14 @@
 import { ServerDTO } from '../types/server.types';
 import { DatasetDTO, DatasetStructureDTO } from './dataset.types';
-import { createAuthenticatedClientAsync, loginAndGetCookies } from '../hapi/login.client';
+import { createAuthenticatedClientAsync, fetchWithAuth } from '../hapi/login.client';
 import { getHost, getRestUrl } from '../hapi/http.client';
 
 const BASE_PATH = '/ecm/api/rest/ecm/dataset/';
 
-const jsonHeaders = new Headers({
+const JSON_HEADERS = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-});
+};
 
 export async function apiFindAllDatasets(server: ServerDTO): Promise<DatasetDTO[]> {
     const uri = `${getHost(server)}/webdesk/ECMDatasetService?wsdl`;
@@ -24,10 +24,10 @@ export async function apiFindAllDatasets(server: ServerDTO): Promise<DatasetDTO[
 }
 
 export async function apiLoadDataset(server: ServerDTO, datasetId: string): Promise<any> {
-    jsonHeaders.set('Cookie', await loginAndGetCookies(server));
-    return fetch(
+    return fetchWithAuth(
+        server,
         getRestUrl(server, BASE_PATH, 'loadDataset', { datasetId }),
-        { headers: jsonHeaders }
+        { headers: JSON_HEADERS }
     ).then(r => r.json());
 }
 
@@ -60,9 +60,8 @@ export async function apiCreateDataset(
     server: ServerDTO,
     dataset: DatasetStructureDTO
 ): Promise<any> {
-    jsonHeaders.set('Cookie', await loginAndGetCookies(server));
-    return fetch(getRestUrl(server, BASE_PATH, 'createDataset'), {
-        headers: jsonHeaders,
+    return fetchWithAuth(server, getRestUrl(server, BASE_PATH, 'createDataset'), {
+        headers: JSON_HEADERS,
         method: 'POST',
         body: JSON.stringify(dataset),
     }).then(r => r.json());
@@ -72,11 +71,11 @@ export async function apiUpdateDataset(
     server: ServerDTO,
     dataset: DatasetStructureDTO
 ): Promise<any> {
-    jsonHeaders.set('Cookie', await loginAndGetCookies(server));
-    return fetch(
+    return fetchWithAuth(
+        server,
         getRestUrl(server, BASE_PATH, 'editDataset', { confirmnewstructure: 'false' }),
         {
-            headers: jsonHeaders,
+            headers: JSON_HEADERS,
             method: 'POST',
             body: JSON.stringify(dataset),
         }

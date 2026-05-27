@@ -1,712 +1,727 @@
 {
-    "name": "fluiggers-fluig-vscode-extension",
-    "displayName": "Fluig - Extensão para Desenvolvimento",
-    "description": "Extensão para agilizar o desenvolvimento para o TOTVS Fluig no VS Code",
-    "version": "2.11.0",
-    "publisher": "Fluiggers",
-    "icon": "images/icon.png",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/fluiggers/fluig-vscode-extension"
-    },
-    "author": {
-        "name": "Bruno Gasparetto",
-        "email": "brunogasparetto@gmail.com",
-        "url": "https://github.com/brunogasparetto"
-    },
-    "contributors": [
-        {
-            "name": "Pedro Costa",
-            "url": "https://github.com/pedro-costa-neto"
-        },
-        {
-            "name": "Bruno Araujo",
-            "url": "https://github.com/brunotda"
-        },
-        {
-            "name": "Jhonatan Serafim",
-            "url": "https://github.com/jhonnytuba"
-        }
-    ],
-    "engines": {
-        "vscode": "^1.100.0"
-    },
-    "categories": [
-        "Snippets",
-        "Programming Languages",
-        "Other"
-    ],
-    "main": "./dist/extension.js",
-    "contributes": {
-        "commands": [
-            {
-                "command": "fluiggers-fluig-vscode-extension.installDeclarationLibrary",
-                "title": "Instalar Declarações de Tipo",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.toggleAutoExport",
-                "title": "Alternar Auto Export ao Salvar",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
-                "title": "Atualizar",
-                "category": "Fluig",
-                "icon": "$(refresh)"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newDataset",
-                "title": "Novo Dataset",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newForm",
-                "title": "Novo Formulário",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newFormEvent",
-                "title": "Novo Evento de Formulário",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
-                "title": "Novo Evento de Processo",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
-                "title": "Exportar Evento de Processo",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newGlobalEvent",
-                "title": "Novo Evento Global",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
-                "title": "Exportar Evento Global",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.deleteGlobalEvent",
-                "title": "Excluir Evento Global",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newMechanism",
-                "title": "Novo Mecanismo Customizado",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importManyMechanisms",
-                "title": "Importar Vários Mecanismos Customizados",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importMechanism",
-                "title": "Importar Mecanismo Customizado",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportMechanism",
-                "title": "Exportar Mecanismo Customizado",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newWidget",
-                "title": "Novo Widget",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportWidget",
-                "title": "Exportar Widget",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importWidget",
-                "title": "Importar Widget",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportFluiggersWidget",
-                "title": "Exportar Fluiggers Widget",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.addServer",
-                "title": "Adicionar Servidor",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/add.svg",
-                    "dark": "dist/images/dark/add.svg"
-                }
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.changeServerConfigPath",
-                "title": "Alterar Caminho para o Arquivo de Configuração de Servidores",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/edit.svg",
-                    "dark": "dist/images/dark/edit.svg"
-                }
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                "title": "Excluir Servidor",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/trash.svg",
-                    "dark": "dist/images/dark/trash.svg"
-                }
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.refreshServer",
-                "title": "Atualizar",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/refresh.svg",
-                    "dark": "dist/images/dark/refresh.svg"
-                }
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.editServer",
-                "title": "Editar Servidor",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/edit.svg",
-                    "dark": "dist/images/dark/edit.svg"
-                }
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.connectServer",
-                "title": "Conectar ao Servidor",
-                "category": "Fluig",
-                "icon": "$(plug)"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.disconnectServer",
-                "title": "Desconectar do Servidor",
-                "category": "Fluig",
-                "icon": "$(debug-disconnect)"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportDataset",
-                "title": "Exportar Dataset",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
-                "title": "Exportar Datasets da Pasta",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importDataset",
-                "title": "Importar Dataset",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importManyDataset",
-                "title": "Importar Vários Datasets",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.searchDataset",
-                "title": "Consultar Dataset",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.runDatasetLocally",
-                "title": "Executar Localmente",
-                "category": "Fluig",
-                "icon": "$(run)"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importForm",
-                "title": "Importar Formulário",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importManyForm",
-                "title": "Importar Vários Formulários",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportForm",
-                "title": "Exportar Formulário",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importGlobalEvent",
-                "title": "Importar Evento Global",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.importManyGlobalEvent",
-                "title": "Importar Vários Eventos Globais",
-                "category": "Fluig"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.datasetView",
-                "title": "Consultar Dataset",
-                "category": "Fluig",
-                "icon": {
-                    "light": "dist/images/light/preview.svg",
-                    "dark": "dist/images/dark/preview.svg"
-                }
-            }
-        ],
-        "menus": {
-            "commandPalette": [
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newFormEvent",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportDataset",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportMechanism",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportForm",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportWidget",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.editServer",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.connectServer",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "false"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
-                    "when": "explorerResourceIsFolder"
-                }
-            ],
-            "explorer/context": [
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newDataset",
-                    "group": "1_Fluig1Dataset@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportDataset",
-                    "when": "resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+$/",
-                    "group": "1_Fluig1Dataset@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.runDatasetLocally",
-                    "when": "resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+\\.js$/",
-                    "group": "1_Fluig1Dataset@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
-                    "when": "explorerResourceIsFolder && resourcePath =~ /.*[\\/\\\\]datasets[\\/\\\\]?.*/",
-                    "group": "1_Fluig1Dataset@4"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importDataset",
-                    "group": "1_Fluig1Dataset@5"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importManyDataset",
-                    "group": "1_Fluig1Dataset@6"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.searchDataset",
-                    "group": "1_Fluig1Dataset@7"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newForm",
-                    "group": "1_Fluig2Form@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newFormEvent",
-                    "when": "resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/",
-                    "group": "1_Fluig2Form@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importManyForm",
-                    "group": "1_Fluig2Form@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importForm",
-                    "group": "1_Fluig2Form@4"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportForm",
-                    "when": "resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/",
-                    "group": "1_Fluig2Form@5"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
-                    "when": "resourcePath =~ /[\\/\\\\]events[\\/\\\\].+$/",
-                    "group": "1_Fluig3GlobalEvent@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newGlobalEvent",
-                    "group": "1_Fluig3GlobalEvent@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importManyGlobalEvent",
-                    "group": "1_Fluig3GlobalEvent@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importGlobalEvent",
-                    "group": "1_Fluig3GlobalEvent@4"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
-                    "when": "resourceExtname == .process || resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
-                    "group": "1_Fluig4Workflow@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
-                    "when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
-                    "group": "1_Fluig4Workflow@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportMechanism",
-                    "when": "resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+$/",
-                    "group": "1_Fluig4Workflow@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newMechanism",
-                    "group": "1_Fluig4Workflow@4"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importManyMechanisms",
-                    "group": "1_Fluig4Workflow@5"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importMechanism",
-                    "group": "1_Fluig4Workflow@6"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.newWidget",
-                    "group": "1_Fluig5WCM@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportWidget",
-                    "when": "resourcePath =~ /[\\/\\\\]widget[\\/\\\\].+$/",
-                    "group": "1_Fluig5WCM@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.importWidget",
-                    "group": "1_Fluig5WCM@3"
-                }
-            ],
-            "view/title": [
-                {
-                    "command": "fluiggers-fluig-vscode-extension.addServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers",
-                    "group": "navigation"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.changeServerConfigPath",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers",
-                    "group": "navigation"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.refreshServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers",
-                    "group": "navigation"
-                }
-            ],
-            "view/item/context": [
-                {
-                    "command": "fluiggers-fluig-vscode-extension.connectServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.editServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
-                    "group": "inline@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
-                    "group": "inline@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.connectServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
-                    "group": "1_server@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.disconnectServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
-                    "group": "1_server@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.editServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
-                    "group": "1_server@2"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.deleteServer",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
-                    "group": "1_server@3"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.exportFluiggersWidget",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
-                    "group": "2_widget@1"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/",
-                    "group": "inline"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup",
-                    "group": "inline"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup"
-                },
-                {
-                    "command": "fluiggers-fluig-vscode-extension.datasetView",
-                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetArtifact"
-                }
-            ]
-        },
-        "keybindings": [
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportDataset",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportMechanism",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]events[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportForm",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportWidget",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]widget[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newDataset",
-                "key": "ctrl+f10",
-                "mac": "cmd+f10"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newForm",
-                "key": "ctrl+f11",
-                "mac": "cmd+f11"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newFormEvent",
-                "key": "ctrl+f12",
-                "mac": "cmd+f12",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
-                "key": "ctrl+f12",
-                "mac": "cmd+f12",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/"
-            },
-            {
-                "command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
-                "key": "ctrl+f9",
-                "mac": "cmd+f9",
-                "when": "editorTextFocus && resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/"
-            }
-        ],
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "fluig-config",
-                    "title": "Fluig",
-                    "icon": "dist/images/icon-brand.png"
-                }
-            ]
-        },
-        "views": {
-            "fluig-config": [
-                {
-                    "id": "fluiggers-fluig-vscode-extension.servers",
-                    "name": "Servidores",
-                    "icon": "dist/images/icon-brand.png"
-                }
-            ]
-        },
-        "viewsWelcome": [
-            {
-                "view": "fluiggers-fluig-vscode-extension.servers",
-                "contents": "Nenhum Servidor encontrado.\n[Adicionar Servidor](command:fluiggers-fluig-vscode-extension.addServer)"
-            }
-        ],
-        "languages": [
-            {
-                "id": "ftl",
-                "aliases": ["FreeMarker Template", "FTL", "ftl"],
-                "extensions": [".ftl"]
-            }
-        ],
-        "snippets": [
-            {
-                "language": "html",
-                "path": "./snippets/html.json"
-            },
-            {
-                "language": "javascript",
-                "path": "./snippets/javascript.json"
-            },
-            {
-                "language": "ftl",
-                "path": "./snippets/html.json"
-            }
-        ],
-        "configuration": [
-            {
-                "title": "Fluiggers",
-                "order": 1,
-                "properties": {
-                    "fluiggers.browserPath": {
-                        "type": "string",
-                        "description": "Caminho do seu Navegador para Autenticação MFA",
-                        "default": "",
-                        "scope": "machine"
-                    },
-                    "fluiggers.serverConfigPath": {
-                        "type": "string",
-                        "description": "Caminho do seu Arquivo de Configuração de Servidores",
-                        "default": "",
-                        "scope": "machine"
-                    },
-                    "fluiggers.autoExportOnSave": {
-                        "type": "boolean",
-                        "description": "Exporta automaticamente o artefato Fluig ao salvar o arquivo (datasets, formulários, eventos, processos, mecanismos, widgets)",
-                        "default": false,
-                        "scope": "resource"
-                    }
-                }
-            }
-        ]
-    },
-    "scripts": {
-        "vscode:prepublish": "npm run package",
-        "precompile": "gulp",
-        "buildResources": "gulp buildResources",
-        "buildLibraries": "gulp buildLibraries",
-        "compile": "webpack",
-        "watch": "npm run precompile && webpack --watch",
-        "package": "npm run precompile && webpack --mode production --devtool hidden-source-map",
-        "test-compile": "tsc -p ./",
-        "test-watch": "tsc -watch -p ./",
-        "pretest": "npm run test-compile && npm run lint",
-        "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js",
-        "test:unit": "vitest run tests/unit",
-        "test:integration": "vitest run tests/integration",
-        "test:watch": "vitest tests/unit",
-        "test:coverage": "vitest run --coverage"
-    },
-    "devDependencies": {
-        "@popperjs/core": "^2.11.8",
-        "@types/glob": "^8.1.0",
-        "@types/mocha": "^10.0.6",
-        "@types/node": "^20.12.12",
-        "@types/vscode": "^1.89.0",
-        "@typescript-eslint/eslint-plugin": "^7.9.0",
-        "@typescript-eslint/parser": "^7.9.0",
-        "@vscode/test-electron": "^2.3.10",
-        "bootstrap": "^5.3.3",
-        "bufferutil": "^4.1.0",
-        "datatables.net-bs5": "^2.0.7",
-        "datatables.net-buttons-bs5": "^3.0.2",
-        "datatables.net-dt": "^2.0.7",
-        "datatables.net-fixedheader-bs5": "^4.0.1",
-        "datatables.net-plugins": "^2.0.7",
-        "datatables.net-scroller-bs5": "^2.4.2",
-        "eslint": "^8.57.0",
-        "glob": "^10.3.15",
-        "gulp": "^5.0.0",
-        "gulp-clean-css": "^4.3.0",
-        "gulp-cli": "^3.0.0",
-        "gulp-concat": "^2.6.1",
-        "gulp-footer": "^2.1.0",
-        "gulp-uglify": "^3.0.2",
-        "html5sortable": "^0.13.3",
-        "jquery": "^3.7.1",
-        "jszip": "^3.10.1",
-        "puppeteer-core": "^24.39.1",
-        "select2": "^4.1.0-rc.0",
-        "select2-bootstrap-5-theme": "^1.3.0",
-        "soap": "^1.0.3",
-        "template-literal": "^1.0.4",
-        "ts-loader": "^9.5.1",
-        "typescript": "^5.4.5",
-        "utf-8-validate": "^6.0.6",
-        "vitest": "^4.1.7",
-        "webpack": "^5.91.0",
-        "webpack-cli": "^5.1.4"
-    },
-    "overrides": {
-        "yauzl": "^3.2.1"
-    }
+	"name": "fluiggers-fluig-vscode-extension",
+	"displayName": "Fluig - Extensão para Desenvolvimento",
+	"description": "Extensão para agilizar o desenvolvimento para o TOTVS Fluig no VS Code",
+	"version": "2.11.0",
+	"publisher": "Fluiggers",
+	"icon": "images/icon.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/fluiggers/fluig-vscode-extension"
+	},
+	"author": {
+		"name": "Bruno Gasparetto",
+		"email": "brunogasparetto@gmail.com",
+		"url": "https://github.com/brunogasparetto"
+	},
+	"contributors": [
+		{
+			"name": "Pedro Costa",
+			"url": "https://github.com/pedro-costa-neto"
+		},
+		{
+			"name": "Bruno Araujo",
+			"url": "https://github.com/brunotda"
+		},
+		{
+			"name": "Jhonatan Serafim",
+			"url": "https://github.com/jhonnytuba"
+		}
+	],
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"categories": [
+		"Snippets",
+		"Programming Languages",
+		"Other"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "fluiggers-fluig-vscode-extension.installDeclarationLibrary",
+				"title": "Instalar Declarações de Tipo",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.toggleAutoExport",
+				"title": "Alternar Auto Export ao Salvar",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+				"title": "Atualizar",
+				"category": "Fluig",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newDataset",
+				"title": "Novo Dataset",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newForm",
+				"title": "Novo Formulário",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newFormEvent",
+				"title": "Novo Evento de Formulário",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
+				"title": "Novo Evento de Processo",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
+				"title": "Exportar Evento de Processo",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newGlobalEvent",
+				"title": "Novo Evento Global",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
+				"title": "Exportar Evento Global",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.deleteGlobalEvent",
+				"title": "Excluir Evento Global",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newMechanism",
+				"title": "Novo Mecanismo Customizado",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importManyMechanisms",
+				"title": "Importar Vários Mecanismos Customizados",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importMechanism",
+				"title": "Importar Mecanismo Customizado",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportMechanism",
+				"title": "Exportar Mecanismo Customizado",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newWidget",
+				"title": "Novo Widget",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWidget",
+				"title": "Exportar Widget",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importWidget",
+				"title": "Importar Widget",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportFluiggersWidget",
+				"title": "Exportar Fluiggers Widget",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.addServer",
+				"title": "Adicionar Servidor",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/add.svg",
+					"dark": "dist/images/dark/add.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.changeServerConfigPath",
+				"title": "Alterar Caminho para o Arquivo de Configuração de Servidores",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/edit.svg",
+					"dark": "dist/images/dark/edit.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.deleteServer",
+				"title": "Excluir Servidor",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/trash.svg",
+					"dark": "dist/images/dark/trash.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.refreshServer",
+				"title": "Atualizar",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/refresh.svg",
+					"dark": "dist/images/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.editServer",
+				"title": "Editar Servidor",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/edit.svg",
+					"dark": "dist/images/dark/edit.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.connectServer",
+				"title": "Conectar ao Servidor",
+				"category": "Fluig",
+				"icon": "$(plug)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.disconnectServer",
+				"title": "Desconectar do Servidor",
+				"category": "Fluig",
+				"icon": "$(debug-disconnect)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportDataset",
+				"title": "Exportar Dataset",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
+				"title": "Exportar Datasets da Pasta",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importDataset",
+				"title": "Importar Dataset",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importManyDataset",
+				"title": "Importar Vários Datasets",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.searchDataset",
+				"title": "Consultar Dataset",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.runDatasetLocally",
+				"title": "Executar Localmente",
+				"category": "Fluig",
+				"icon": "$(run)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importForm",
+				"title": "Importar Formulário",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importManyForm",
+				"title": "Importar Vários Formulários",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportForm",
+				"title": "Exportar Formulário",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importGlobalEvent",
+				"title": "Importar Evento Global",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.importManyGlobalEvent",
+				"title": "Importar Vários Eventos Globais",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.datasetView",
+				"title": "Consultar Dataset",
+				"category": "Fluig",
+				"icon": {
+					"light": "dist/images/light/preview.svg",
+					"dark": "dist/images/dark/preview.svg"
+				}
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.testConnection",
+				"title": "Fluig: Testar Conexão"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.newFormEvent",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportDataset",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportMechanism",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportForm",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportWidget",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.deleteServer",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.editServer",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.connectServer",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.disconnectServer",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.datasetView",
+					"when": "false"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
+					"when": "explorerResourceIsFolder"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.newDataset",
+					"group": "1_Fluig1Dataset@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportDataset",
+					"when": "resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+$/",
+					"group": "1_Fluig1Dataset@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.runDatasetLocally",
+					"when": "resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig1Dataset@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportDatasetFolder",
+					"when": "explorerResourceIsFolder && resourcePath =~ /.*[\\/\\\\]datasets[\\/\\\\]?.*/",
+					"group": "1_Fluig1Dataset@4"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importDataset",
+					"group": "1_Fluig1Dataset@5"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importManyDataset",
+					"group": "1_Fluig1Dataset@6"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.searchDataset",
+					"group": "1_Fluig1Dataset@7"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newForm",
+					"group": "1_Fluig2Form@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newFormEvent",
+					"when": "resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/",
+					"group": "1_Fluig2Form@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importManyForm",
+					"group": "1_Fluig2Form@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importForm",
+					"group": "1_Fluig2Form@4"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportForm",
+					"when": "resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/",
+					"group": "1_Fluig2Form@5"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
+					"when": "resourcePath =~ /[\\/\\\\]events[\\/\\\\].+$/",
+					"group": "1_Fluig3GlobalEvent@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newGlobalEvent",
+					"group": "1_Fluig3GlobalEvent@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importManyGlobalEvent",
+					"group": "1_Fluig3GlobalEvent@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importGlobalEvent",
+					"group": "1_Fluig3GlobalEvent@4"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
+					"when": "resourceExtname == .process || resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig4Workflow@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
+					"when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig4Workflow@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportMechanism",
+					"when": "resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+$/",
+					"group": "1_Fluig4Workflow@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newMechanism",
+					"group": "1_Fluig4Workflow@4"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importManyMechanisms",
+					"group": "1_Fluig4Workflow@5"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importMechanism",
+					"group": "1_Fluig4Workflow@6"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.newWidget",
+					"group": "1_Fluig5WCM@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportWidget",
+					"when": "resourcePath =~ /[\\/\\\\]widget[\\/\\\\].+$/",
+					"group": "1_Fluig5WCM@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.importWidget",
+					"group": "1_Fluig5WCM@3"
+				}
+			],
+			"view/title": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.addServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.changeServerConfigPath",
+					"when": "view == fluiggers-fluig-vscode-extension.servers",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.connectServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
+					"group": "inline@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.disconnectServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
+					"group": "inline@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.editServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "inline@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.deleteServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "inline@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.connectServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemDisconnected",
+					"group": "1_server@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.disconnectServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == serverItemConnected",
+					"group": "1_server@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.editServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "1_server@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.deleteServer",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "1_server@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.exportFluiggersWidget",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "2_widget@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/",
+					"group": "inline"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.datasetView",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup",
+					"group": "inline"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.datasetView",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetGroup"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.datasetView",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem == datasetArtifact"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.testConnection",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "1_server@10"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportDataset",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportMechanism",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportGlobalEvent",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]events[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportForm",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWidget",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]widget[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newDataset",
+				"key": "ctrl+f10",
+				"mac": "cmd+f10"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newForm",
+				"key": "ctrl+f11",
+				"mac": "cmd+f11"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newFormEvent",
+				"key": "ctrl+f12",
+				"mac": "cmd+f12",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]forms[\\/\\\\].+$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.newWorkflowEvent",
+				"key": "ctrl+f12",
+				"mac": "cmd+f12",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.exportWorkflowEvent",
+				"key": "ctrl+f9",
+				"mac": "cmd+f9",
+				"when": "editorTextFocus && resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "fluig-config",
+					"title": "Fluig",
+					"icon": "dist/images/icon-brand.png"
+				}
+			]
+		},
+		"views": {
+			"fluig-config": [
+				{
+					"id": "fluiggers-fluig-vscode-extension.servers",
+					"name": "Servidores",
+					"icon": "dist/images/icon-brand.png"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "fluiggers-fluig-vscode-extension.servers",
+				"contents": "Nenhum Servidor encontrado.\n[Adicionar Servidor](command:fluiggers-fluig-vscode-extension.addServer)"
+			}
+		],
+		"languages": [
+			{
+				"id": "ftl",
+				"aliases": [
+					"FreeMarker Template",
+					"FTL",
+					"ftl"
+				],
+				"extensions": [
+					".ftl"
+				]
+			}
+		],
+		"snippets": [
+			{
+				"language": "html",
+				"path": "./snippets/html.json"
+			},
+			{
+				"language": "javascript",
+				"path": "./snippets/javascript.json"
+			},
+			{
+				"language": "ftl",
+				"path": "./snippets/html.json"
+			}
+		],
+		"configuration": [
+			{
+				"title": "Fluiggers",
+				"order": 1,
+				"properties": {
+					"fluiggers.browserPath": {
+						"type": "string",
+						"description": "Caminho do seu Navegador para Autenticação MFA",
+						"default": "",
+						"scope": "machine"
+					},
+					"fluiggers.serverConfigPath": {
+						"type": "string",
+						"description": "Caminho do seu Arquivo de Configuração de Servidores",
+						"default": "",
+						"scope": "machine"
+					},
+					"fluiggers.autoExportOnSave": {
+						"type": "boolean",
+						"description": "Exporta automaticamente o artefato Fluig ao salvar o arquivo (datasets, formulários, eventos, processos, mecanismos, widgets)",
+						"default": false,
+						"scope": "resource"
+					}
+				}
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run package",
+		"precompile": "gulp",
+		"buildResources": "gulp buildResources",
+		"buildLibraries": "gulp buildLibraries",
+		"compile": "webpack",
+		"watch": "npm run precompile && webpack --watch",
+		"package": "npm run precompile && webpack --mode production --devtool hidden-source-map",
+		"test-compile": "tsc -p ./",
+		"test-watch": "tsc -watch -p ./",
+		"pretest": "npm run test-compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js",
+		"test:unit": "vitest run tests/unit",
+		"test:integration": "vitest run tests/integration",
+		"test:watch": "vitest tests/unit",
+		"test:coverage": "vitest run --coverage"
+	},
+	"devDependencies": {
+		"@popperjs/core": "^2.11.8",
+		"@types/glob": "^8.1.0",
+		"@types/mocha": "^10.0.6",
+		"@types/node": "^20.12.12",
+		"@types/vscode": "^1.89.0",
+		"@typescript-eslint/eslint-plugin": "^7.9.0",
+		"@typescript-eslint/parser": "^7.9.0",
+		"@vscode/test-electron": "^2.3.10",
+		"bootstrap": "^5.3.3",
+		"bufferutil": "^4.1.0",
+		"datatables.net-bs5": "^2.0.7",
+		"datatables.net-buttons-bs5": "^3.0.2",
+		"datatables.net-dt": "^2.0.7",
+		"datatables.net-fixedheader-bs5": "^4.0.1",
+		"datatables.net-plugins": "^2.0.7",
+		"datatables.net-scroller-bs5": "^2.4.2",
+		"eslint": "^8.57.0",
+		"glob": "^10.3.15",
+		"gulp": "^5.0.0",
+		"gulp-clean-css": "^4.3.0",
+		"gulp-cli": "^3.0.0",
+		"gulp-concat": "^2.6.1",
+		"gulp-footer": "^2.1.0",
+		"gulp-uglify": "^3.0.2",
+		"html5sortable": "^0.13.3",
+		"jquery": "^3.7.1",
+		"jszip": "^3.10.1",
+		"puppeteer-core": "^24.39.1",
+		"select2": "^4.1.0-rc.0",
+		"select2-bootstrap-5-theme": "^1.3.0",
+		"soap": "^1.0.3",
+		"template-literal": "^1.0.4",
+		"ts-loader": "^9.5.1",
+		"typescript": "^5.4.5",
+		"utf-8-validate": "^6.0.6",
+		"vitest": "^4.1.7",
+		"webpack": "^5.91.0",
+		"webpack-cli": "^5.1.4"
+	},
+	"overrides": {
+		"yauzl": "^3.2.1"
+	}
 }

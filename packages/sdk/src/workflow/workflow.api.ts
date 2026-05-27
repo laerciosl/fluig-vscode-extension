@@ -1,17 +1,18 @@
 import { ServerDTO } from '../types/server.types';
-import { loginAndGetCookies } from '../hapi/login.client';
+import { fetchWithAuth } from '../hapi/login.client';
 import { getHost } from '../hapi/http.client';
+
+const WORKFLOW_TIMEOUT_MS = 120_000;
 
 export async function apiGetLastWorkflowVersion(
     server: ServerDTO,
     processId: string
 ): Promise<number> {
-    return fetch(
+    return fetchWithAuth(
+        server,
         `${getHost(server)}/fluiggersWidget/api/workflows/${encodeURIComponent(processId)}/version`,
-        {
-            method: 'GET',
-            headers: { Cookie: await loginAndGetCookies(server) },
-        }
+        { method: 'GET' },
+        WORKFLOW_TIMEOUT_MS
     ).then(async r => {
         if (!r.ok) {
             return 0;
@@ -26,16 +27,15 @@ export async function apiUpdateWorkflowEvents(
     version: number,
     events: { name: string; contents: string }[]
 ): Promise<any> {
-    return fetch(
+    return fetchWithAuth(
+        server,
         `${getHost(server)}/fluiggersWidget/api/workflows/${encodeURIComponent(processId)}/${version}/events`,
         {
             method: 'PUT',
-            headers: {
-                Cookie: await loginAndGetCookies(server),
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(events),
-        }
+        },
+        WORKFLOW_TIMEOUT_MS
     ).then(r => {
         if (!r.ok) {
             throw `Não foi possível atualizar os eventos. ${r.statusText}`;

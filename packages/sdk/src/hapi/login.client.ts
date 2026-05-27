@@ -62,6 +62,33 @@ export function clearCookies(server: ServerDTO): void {
     delete cachedCookies[getCookiesKey(server)];
 }
 
+export async function fetchWithAuth(
+    server: ServerDTO,
+    url: string | URL,
+    options: RequestInit = {},
+    timeoutMs = 30_000
+): Promise<Response> {
+    const doFetch = async (): Promise<Response> => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const cookies = await loginAndGetCookies(server);
+            const headers = new Headers(options.headers);
+            headers.set('Cookie', cookies);
+            return await fetch(url, { ...options, headers, signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+
+    const response = await doFetch();
+    if (response.status === 401) {
+        clearCookies(server);
+        return doFetch();
+    }
+    return response;
+}
+
 // ── Internals ─────────────────────────────────────────────────────────────────
 
 function getCookiesKey(server: ServerDTO): string {

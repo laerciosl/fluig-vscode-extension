@@ -31,6 +31,10 @@ export function initOutput(): void {
     getChannel();
 }
 
+export function showOutput(): void {
+    getChannel().show(true);
+}
+
 export function disposeOutput(): void {
     channel?.dispose();
     channel = undefined;

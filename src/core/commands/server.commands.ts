@@ -7,6 +7,7 @@ import {
 } from '../providers/server-item.provider';
 import { checkServerConfigVersion, setSelectedServer, clearSelectedServer } from '../server.service';
 import { logInfo } from '../output';
+import { testConnection } from '../../fluig/health/health.service';
 
 export async function registerServerCommands(context: vscode.ExtensionContext): Promise<void> {
     if (!(await checkServerConfigVersion())) {
@@ -61,6 +62,10 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
                 clearSelectedServer();
                 logInfo(`○ Desconectado do servidor: ${serverItem.server.name}`);
             }
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.testConnection',
+            (serverItem?: ServerItem) => testConnection(serverItem?.server)
         )
     );
 }
