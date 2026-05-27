@@ -85,6 +85,17 @@ Stored at `.vscode/fluig-servers.json` in the workspace by default; can be redir
 
 `ServerView` and `DatasetView` load HTML templates from `dist/views/` using the `template-literal` package for variable substitution. All third-party JS/CSS assets (jQuery, Bootstrap 5, Select2, DataTables) are bundled by Gulp into `dist/libs/` and injected as `asWebviewUri` references.
 
+## After every change
+
+After any code change, always run the tests and fix failures before reporting the task as done:
+
+```bash
+npm run test:unit
+npm run test:integration
+```
+
+If any test fails, investigate the root cause and fix it — do not skip or comment out failing tests.
+
 ## Key conventions
 
 - **Module-level functions, not static classes**: service files export plain functions. Do not create static-only classes for services.

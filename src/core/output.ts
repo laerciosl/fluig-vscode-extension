@@ -27,6 +27,10 @@ export function logError(message: string): void {
     ch.show(true);
 }
 
+export function initOutput(): void {
+    getChannel();
+}
+
 export function disposeOutput(): void {
     channel?.dispose();
     channel = undefined;

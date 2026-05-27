@@ -8,6 +8,7 @@ import { buildMechanismStructure, buildEventsPayload } from './workflow.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { markSynced, markError } from '../../core/sync-state';
 import { getSelect } from '../../core/server.service';
+import { logInfo } from '../../core/output';
 import {
     loginAndGetCookies,
     getRestUrl,
@@ -36,6 +37,7 @@ export async function updateWorkflowEvents(eventUri: Uri): Promise<void> {
     }
 
     const processId = eventUri.path.replace(/.*\/workflow\/scripts\/([^.]+).+\.js$/, '$1');
+    logInfo(`Exportando eventos do processo: ${processId} → ${server.name}`);
     const lastVersion = await apiGetLastWorkflowVersion(server, processId);
 
     if (lastVersion === 0) {
@@ -354,6 +356,7 @@ export async function exportMechanism(fileUri: Uri): Promise<void> {
         return;
     }
 
+    logInfo(`Exportando mecanismo: ${mechanismId} → ${server.name}`);
     mechanismStructure.name = name;
     mechanismStructure.description = description;
     mechanismStructure.attributionMecanismDescription = readFileSync(fileUri.fsPath, 'utf8');

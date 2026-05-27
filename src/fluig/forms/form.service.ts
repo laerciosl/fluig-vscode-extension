@@ -8,6 +8,7 @@ import { buildCreateFormParams, buildUpdateFormParams } from './form.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { markSynced, markError } from '../../core/sync-state';
+import { logInfo, logSuccess } from '../../core/output';
 import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
 function getServiceUri(server: ServerDTO): string {
@@ -95,7 +96,9 @@ export async function importOne(): Promise<void> {
         return;
     }
 
+    logInfo(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
     await writeFormFiles(server, form, getWorkspaceUri());
+    logSuccess(`Formulário importado: ${form.documentDescription}`);
     window.showInformationMessage('O formulário foi importado!');
 }
 
@@ -110,6 +113,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
+    logInfo(`Importando ${forms.length} formulário(s) ← ${server.name}`);
     const workspaceUri = getWorkspaceUri();
 
     const results = await window.withProgress(
@@ -125,6 +129,7 @@ export async function importMany(): Promise<void> {
                         return;
                     }
                     await writeFormFiles(server, form, workspaceUri);
+                    logSuccess(`Formulário importado: ${form.documentDescription}`);
                     current += increment;
                     progress.report({ increment: current });
                     return true;

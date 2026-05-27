@@ -6,6 +6,7 @@ import { GlobalEventDTO } from './global-event.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { markSynced, markError } from '../../core/sync-state';
+import { logInfo, logSuccess } from '../../core/output';
 import { loginAndGetCookies, getRestUrl } from '@fluiggers/sdk';
 
 const BASE_PATH = '/ecm/api/rest/ecm/globalevent/';
@@ -77,6 +78,7 @@ export async function importOne(): Promise<void> {
         return;
     }
 
+    logInfo(`Importando evento global: ${event.globalEventPK.eventId} ← ${server.name}`);
     await saveFile(event.globalEventPK.eventId, event.eventDescription);
 }
 
@@ -91,6 +93,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
+    logInfo(`Importando ${eventList.length} evento(s) global(is) ← ${server.name}`);
     const results = await window.withProgress(
         { location: ProgressLocation.Notification, title: 'Importando Eventos Globais.', cancellable: false },
         progress => {
@@ -101,6 +104,7 @@ export async function importMany(): Promise<void> {
             return Promise.all(
                 eventList.map(async event => {
                     await saveFile(event.globalEventPK.eventId, event.eventDescription, false);
+                    logSuccess(`Evento global importado: ${event.globalEventPK.eventId}`);
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -124,8 +128,9 @@ export async function exportOne(fileUri: Uri): Promise<void> {
         return;
     }
 
-    const globalEvents = await apiGetEventList(server);
     const globalEventId = basename(fileUri.fsPath, '.js');
+    logInfo(`Exportando evento global: ${globalEventId} → ${server.name}`);
+    const globalEvents = await apiGetEventList(server);
 
     const structure: GlobalEventDTO = {
         globalEventPK: { companyId: server.companyId, eventId: globalEventId },
@@ -191,6 +196,7 @@ export async function saveFile(name: string, content: string, openFile = true): 
     await workspace.fs.writeFile(uri, Buffer.from(content, 'utf-8'));
 
     if (openFile) {
+        logSuccess(`Evento global importado: ${name}`);
         window.showTextDocument(uri);
         window.showInformationMessage(`Evento global ${name} importado com sucesso!`);
     }

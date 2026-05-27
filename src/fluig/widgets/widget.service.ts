@@ -9,6 +9,7 @@ import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { Server } from '../../core/server.model';
 import { markSynced, markError } from '../../core/sync-state';
+import { logInfo, logSuccess } from '../../core/output';
 import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
 // ── Export ─────────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
         return;
     }
 
+    logInfo(`Instalando FluiggersWidget → ${server.name}`);
     try {
         const downloaded = await fetch(
             'https://raw.githubusercontent.com/fluiggers/fluig-widget-helper/refs/heads/master/target/fluiggersWidget.war'
@@ -101,6 +103,7 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
         if (response.message) {
             window.showErrorMessage(response.message.message);
         } else {
+            logSuccess(`FluiggersWidget enviada para: ${server.name}`);
             window.showInformationMessage(
                 'Widget enviada com sucesso. Você será notificado assim que a instalação/atualização for concluída.'
             );
@@ -127,6 +130,7 @@ export async function importWidget(): Promise<void> {
             return;
         }
 
+        logInfo(`Importando ${widgets.length} widget(s) ← ${server.name}`);
         const results = await window.withProgress(
             { location: ProgressLocation.Notification, title: 'Importando Widgets.', cancellable: false },
             progress => {
@@ -177,6 +181,7 @@ export async function importWidget(): Promise<void> {
                             window.showErrorMessage(error.message || error);
                         }
 
+                        logSuccess(`Widget importada: ${widget.code}`);
                         current += increment;
                         progress.report({ increment: current });
                         return true;

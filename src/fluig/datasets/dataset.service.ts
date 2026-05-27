@@ -9,6 +9,7 @@ import { promptUniqueDatasetId } from './dataset.validator';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { markSynced, markError } from '../../core/sync-state';
+import { logInfo, logSuccess, logError } from '../../core/output';
 import {
     apiFindAllDatasets,
     apiLoadDataset,
@@ -57,6 +58,7 @@ export async function importOne(): Promise<void> {
     }
 
     const datasetId = dataset.datasetPK.datasetId;
+    logInfo(`Importando dataset: ${datasetId} ← ${server.name}`);
     const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
 
@@ -64,6 +66,7 @@ export async function importOne(): Promise<void> {
         await workspace.fs.writeFile(Uri.file(existing[0]), Buffer.from(dataset.datasetImpl, 'utf-8'));
         window.showTextDocument(Uri.file(existing[0]));
         window.showInformationMessage(`Dataset ${datasetId} atualizado com sucesso!`);
+        logSuccess(`Dataset importado: ${datasetId}`);
     } else {
         await saveFile(datasetId, dataset.datasetImpl);
     }
@@ -80,6 +83,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
+    logInfo(`Importando ${selections.length} dataset(s) ← ${server.name}`);
     const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
 
     const results = await window.withProgress(
@@ -104,6 +108,7 @@ export async function importMany(): Promise<void> {
                         await saveFile(datasetId, dataset.datasetImpl, false);
                     }
 
+                    logSuccess(`Dataset importado: ${datasetId}`);
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -127,6 +132,7 @@ export async function exportOne(fileUri: Uri): Promise<void> {
     const items: { label: string }[] = [];
     let datasetIdSelected = '';
     let datasetId = basename(fileUri.fsPath, '.js');
+    logInfo(`Exportando dataset: ${datasetId} → ${server.name}`);
 
     for (const ds of datasets) {
         if (ds.datasetId !== datasetId) {

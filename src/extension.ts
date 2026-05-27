@@ -14,9 +14,11 @@ import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { registerRuntimeCommands } from './core/commands/runtime.commands';
 import { onDidChangeSyncState, getStatus } from './core/sync-state';
-import { logSuccess, logError, disposeOutput } from './core/output';
+import { logSuccess, logError, initOutput, disposeOutput } from './core/output';
 
 export async function activate(context: ExtensionContext): Promise<void> {
+    initOutput();
+
     if (!workspace.workspaceFolders) {
         window.showWarningMessage(
             'A extensão Fluiggers requer uma pasta ou Workspace aberto para funcionar.'

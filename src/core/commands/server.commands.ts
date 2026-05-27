@@ -6,6 +6,7 @@ import {
     ServerItemProvider,
 } from '../providers/server-item.provider';
 import { checkServerConfigVersion, setSelectedServer, clearSelectedServer } from '../server.service';
+import { logInfo } from '../output';
 
 export async function registerServerCommands(context: vscode.ExtensionContext): Promise<void> {
     if (!(await checkServerConfigVersion())) {
@@ -49,11 +50,17 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
         ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.connectServer',
-            (serverItem: ServerItem) => setSelectedServer(serverItem.server.name)
+            (serverItem: ServerItem) => {
+                setSelectedServer(serverItem.server.name);
+                logInfo(`● Conectado ao servidor: ${serverItem.server.name}`);
+            }
         ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.disconnectServer',
-            (_serverItem: ServerItem) => clearSelectedServer()
+            (serverItem: ServerItem) => {
+                clearSelectedServer();
+                logInfo(`○ Desconectado do servidor: ${serverItem.server.name}`);
+            }
         )
     );
 }
