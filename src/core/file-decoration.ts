@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { onDidChangeSyncState, getStatus, SyncStatus } from './sync-state';
+import { SyncStatus, getRuntime } from './runtime-state';
 
 const DECORATIONS: Record<SyncStatus, vscode.FileDecoration> = {
     synced: new vscode.FileDecoration(
@@ -20,10 +20,10 @@ const DECORATIONS: Record<SyncStatus, vscode.FileDecoration> = {
 };
 
 export class SyncDecorationProvider implements vscode.FileDecorationProvider {
-    readonly onDidChangeFileDecorations = onDidChangeSyncState;
+    readonly onDidChangeFileDecorations = getRuntime().onDidChangeSyncState;
 
     provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-        const status = getStatus(uri);
+        const status = getRuntime().getStatus(uri);
         return status ? DECORATIONS[status] : undefined;
     }
 }

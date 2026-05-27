@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ServerDTO } from '../../types/server.types';
 import { Server } from '../server.model';
-import { getServerConfig, getFileServerConfig, updateConfigPath, onDidSelectServer, getSelectedServerName } from '../server.service';
+import { getServerConfig, getFileServerConfig, updateConfigPath } from '../server.service';
+import { getRuntime } from '../runtime-state';
 import { ServerView } from '../views/server.view';
 import { DatasetView } from '../views/dataset.view';
 import { getCustomDatasets } from '../../fluig/datasets/dataset.service';
@@ -118,7 +119,7 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
     constructor(public context: vscode.ExtensionContext) {
         this.watchConfigFile();
 
-        onDidSelectServer(() => {
+        getRuntime().onDidSelectServer(() => {
             this.serverItems = this.buildServerItems();
             this.refresh();
         });
@@ -239,7 +240,7 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
 
     private buildServerItems(): ServerItem[] {
         const serverConfig = getServerConfig();
-        const connectedName = getSelectedServerName();
+        const connectedName = getRuntime().activeServer?.name ?? '';
 
         return serverConfig.configurations
             .map(

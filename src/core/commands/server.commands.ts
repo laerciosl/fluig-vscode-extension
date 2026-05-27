@@ -5,7 +5,9 @@ import {
     ArtifactItem,
     ServerItemProvider,
 } from '../providers/server-item.provider';
-import { checkServerConfigVersion, setSelectedServer, clearSelectedServer } from '../server.service';
+import { checkServerConfigVersion } from '../server.service';
+import { Server } from '../server.model';
+import { getRuntime } from '../runtime-state';
 import { logInfo } from '../output';
 import { testConnection } from '../../fluig/health/health.service';
 
@@ -52,14 +54,14 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.connectServer',
             (serverItem: ServerItem) => {
-                setSelectedServer(serverItem.server.name);
+                getRuntime().selectServer(new Server(serverItem.server));
                 logInfo(`● Conectado ao servidor: ${serverItem.server.name}`);
             }
         ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.disconnectServer',
             (serverItem: ServerItem) => {
-                clearSelectedServer();
+                getRuntime().deselectServer();
                 logInfo(`○ Desconectado do servidor: ${serverItem.server.name}`);
             }
         ),

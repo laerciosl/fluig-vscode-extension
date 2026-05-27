@@ -1,31 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
-import { window, workspace, Uri, QuickPickItem, EventEmitter } from 'vscode';
+import { window, workspace, Uri, QuickPickItem } from 'vscode';
 import { getWorkspaceUri, generateRandomId } from './workspace.utils';
 import { ServerConfig, ServerDTO } from '../types/server.types';
 import { Server } from './server.model';
+import { getRuntime } from './runtime-state';
 import { getUser } from '@fluiggers/sdk';
 
 const SERVER_CONFIG_VERSION = '1.0.0';
 
 let FILE_SERVER_CONFIG = resolveConfigPath();
-let SELECTED_SERVER = '';
-
-const _onDidSelectServer = new EventEmitter<string>();
-export const onDidSelectServer = _onDidSelectServer.event;
-
-export function getSelectedServerName(): string {
-    return SELECTED_SERVER;
-}
-
-export function setSelectedServer(name: string): void {
-    SELECTED_SERVER = name;
-    _onDidSelectServer.fire(SELECTED_SERVER);
-}
-
-export function clearSelectedServer(): void {
-    SELECTED_SERVER = '';
-    _onDidSelectServer.fire('');
-}
 
 // ── Config path ────────────────────────────────────────────────────────────
 
@@ -123,8 +106,13 @@ export async function getSelect(): Promise<Server | undefined> {
         return undefined;
     }
 
-    setSelectedServer(result.label);
-    return new Server(findByName(result.label));
+    const dto = findByName(result.label);
+    if (!dto) {
+        return undefined;
+    }
+    const server = new Server(dto);
+    getRuntime().selectServer(server);
+    return server;
 }
 
 // ── Version migration ──────────────────────────────────────────────────────
@@ -188,11 +176,12 @@ export async function checkServerConfigVersion(): Promise<boolean> {
 
 function buildServerLabels(): QuickPickItem[] {
     const serversConfig = getServerConfig();
+    const activeName = getRuntime().activeServer?.name ?? '';
     const labels: QuickPickItem[] = [];
     let hasSelected = false;
 
     for (const server of serversConfig.configurations) {
-        if (server.name === SELECTED_SERVER) {
+        if (server.name === activeName) {
             hasSelected = true;
             continue;
         }
@@ -200,7 +189,7 @@ function buildServerLabels(): QuickPickItem[] {
     }
 
     if (hasSelected) {
-        labels.unshift({ label: SELECTED_SERVER });
+        labels.unshift({ label: activeName });
     }
 
     return labels;

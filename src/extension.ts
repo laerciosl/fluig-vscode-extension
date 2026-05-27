@@ -13,11 +13,13 @@ import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { registerRuntimeCommands } from './core/commands/runtime.commands';
-import { onDidChangeSyncState, getStatus, markSynced, markError } from './core/sync-state';
+import { RuntimeState, initRuntime } from './core/runtime-state';
 import { logSuccess, logError, initOutput, disposeOutput } from './core/output';
 import { onArtifactSuccess, onArtifactError, disposeEventBus } from './core/event-bus';
 
 export async function activate(context: ExtensionContext): Promise<void> {
+    const runtime = new RuntimeState();
+    initRuntime(runtime);
     initOutput();
 
     if (!workspace.workspaceFolders) {
@@ -58,11 +60,13 @@ export async function activate(context: ExtensionContext): Promise<void> {
     TemplateService.globalEventsNames = TemplateService.getTemplatesNameFromPath(TemplateService.globalEventsUri);
 
     context.subscriptions.push(
+        runtime,
+
         vscode.window.registerFileDecorationProvider(new SyncDecorationProvider()),
 
-        // Sync-state legacy listener (file decorations driven by markSynced/markError)
-        onDidChangeSyncState(uri => {
-            const status = getStatus(uri);
+        // Sync-state listener (file decorations driven by markSynced/markError)
+        runtime.onDidChangeSyncState(uri => {
+            const status = runtime.getStatus(uri);
             const name = basename(uri.fsPath);
             if (status === 'synced') {
                 logSuccess(`Sincronizado: ${name}`);
@@ -75,7 +79,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         onArtifactSuccess(e => {
             const verb = e.operation === 'export' ? 'Exportado' : 'Importado';
             logSuccess(`${verb}: ${e.name} → ${e.serverName}`);
-            if (e.uri) { markSynced(e.uri); }
+            if (e.uri) { runtime.markSynced(e.uri); }
             if (!e.silent) {
                 window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
             }
@@ -83,7 +87,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         onArtifactError(e => {
             const verb = e.operation === 'export' ? 'exportar' : 'importar';
             logError(`Falha ao ${verb}: ${e.name} — ${e.error}`);
-            if (e.uri) { markError(e.uri); }
+            if (e.uri) { runtime.markError(e.uri); }
             if (!e.silent) {
                 window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
             }

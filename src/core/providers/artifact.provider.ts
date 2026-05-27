@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { Server } from '../server.model';
-import { findByName, getSelectedServerName, onDidSelectServer } from '../server.service';
+import { getRuntime } from '../runtime-state';
 
 type ProviderState<T> =
     | { tag: 'disconnected' }
@@ -15,8 +15,8 @@ export abstract class FluigArtifactProvider<T> implements vscode.TreeDataProvide
     private state: ProviderState<T> = { tag: 'disconnected' };
 
     constructor() {
-        onDidSelectServer(name => {
-            if (!name) {
+        getRuntime().onDidSelectServer(server => {
+            if (!server) {
                 this.state = { tag: 'disconnected' };
                 this._onChange.fire();
             } else {
@@ -40,13 +40,8 @@ export abstract class FluigArtifactProvider<T> implements vscode.TreeDataProvide
         void this.reload();
     }
 
-    currentServer(): Server | undefined {
-        const name = getSelectedServerName();
-        if (!name) {
-            return undefined;
-        }
-        const dto = findByName(name);
-        return dto ? new Server(dto) : undefined;
+    currentServer(): Server | null {
+        return getRuntime().activeServer;
     }
 
     protected abstract loadItems(server: Server): Promise<T[]>;
