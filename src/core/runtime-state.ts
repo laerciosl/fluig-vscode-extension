@@ -2,8 +2,7 @@ import { EventEmitter, Event, Uri, Disposable } from 'vscode';
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { Server } from './server.model';
-
-type DeployFn = () => Promise<void>;
+import { DeployQueue } from './deploy-queue';
 
 export type SyncStatus = 'synced' | 'modified' | 'error';
 
@@ -69,37 +68,17 @@ export class RuntimeState implements Disposable {
 
     // ── Deploy queue ──────────────────────────────────────────────────────────
 
-    private readonly _queue: DeployFn[] = [];
-    private _draining = false;
-
-    enqueue(fn: DeployFn): void {
-        this._queue.push(fn);
-        if (!this._draining) {
-            void this.drain();
-        }
-    }
+    readonly deployQueue = new DeployQueue();
 
     // ── Dispose ───────────────────────────────────────────────────────────────
 
     dispose(): void {
         this._onSelectServer.dispose();
         this._onSyncChange.dispose();
+        this.deployQueue.cancelAll();
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    private async drain(): Promise<void> {
-        this._draining = true;
-        while (this._queue.length) {
-            const fn = this._queue.shift()!;
-            try {
-                await fn();
-            } catch {
-                // errors are handled by the service / event-bus listener
-            }
-        }
-        this._draining = false;
-    }
 
     private hashFile(uri: Uri): string {
         try {

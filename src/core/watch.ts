@@ -10,6 +10,7 @@ import { logInfo } from './output';
 
 const CONFIG_KEY = 'autoExportOnSave';
 const DEBOUNCE_MS = 500;
+const MAX_RETRIES = 2;
 
 export type ExportType = 'dataset' | 'form' | 'globalEvent' | 'workflow' | 'mechanism' | 'widget';
 
@@ -22,8 +23,6 @@ export function resolveExportType(filePath: string): ExportType | null {
     if (/[/\\]widget[/\\].+$/.test(filePath))                    return 'widget';
     return null;
 }
-
-const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function isEnabled(): boolean {
     return vscode.workspace.getConfiguration('fluiggers').get<boolean>(CONFIG_KEY, false);
@@ -43,32 +42,25 @@ function updateStatusBar(item: vscode.StatusBarItem): void {
 
 async function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): Promise<void> {
     switch (resolveExportType(fileUri.path)) {
-        case 'dataset':    await exportDataset(fileUri); break;
+        case 'dataset':     await exportDataset(fileUri); break;
         case 'globalEvent': await exportGlobalEvent(fileUri); break;
-        case 'workflow':   await updateWorkflowEvents(fileUri); break;
-        case 'mechanism':  await exportMechanism(fileUri); break;
-        case 'form':       await exportForm(context, fileUri); break;
-        case 'widget':     await exportWidget(fileUri); break;
+        case 'workflow':    await updateWorkflowEvents(fileUri); break;
+        case 'mechanism':   await exportMechanism(fileUri); break;
+        case 'form':        await exportForm(context, fileUri); break;
+        case 'widget':      await exportWidget(fileUri); break;
     }
 }
 
 function scheduleExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): void {
-    const key = fileUri.fsPath;
-    const existing = debounceTimers.get(key);
-    if (existing) {
-        clearTimeout(existing);
-    }
-
-    const timer = setTimeout(() => {
-        debounceTimers.delete(key);
-        const name = basename(key);
-        getRuntime().enqueue(async () => {
+    const name = basename(fileUri.fsPath);
+    getRuntime().deployQueue.enqueue(
+        fileUri.fsPath,
+        async () => {
             logInfo(`Exportando: ${name}`);
             await resolveExport(fileUri, context);
-        });
-    }, DEBOUNCE_MS);
-
-    debounceTimers.set(key, timer);
+        },
+        { debounceMs: DEBOUNCE_MS, maxRetries: MAX_RETRIES }
+    );
 }
 
 export function registerWatchMode(context: vscode.ExtensionContext): void {
