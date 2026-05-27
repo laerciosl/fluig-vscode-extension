@@ -5,6 +5,7 @@ import {
     exportFluiggersWidget,
     importWidget,
 } from '../../fluig/widgets/widget.service';
+import { ServerItem } from '../providers/server-item.provider';
 
 export function registerWidgetCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
@@ -31,7 +32,7 @@ export function registerWidgetCommands(context: vscode.ExtensionContext): void {
         ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.exportFluiggersWidget',
-            exportFluiggersWidget
+            (serverItem?: ServerItem) => exportFluiggersWidget(serverItem?.server)
         )
     );
 }

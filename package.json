@@ -488,6 +488,11 @@
                     "group": "1_server@3"
                 },
                 {
+                    "command": "fluiggers-fluig-vscode-extension.exportFluiggersWidget",
+                    "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+                    "group": "2_widget@1"
+                },
+                {
                     "command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
                     "when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /Group$/",
                     "group": "inline"

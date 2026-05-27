@@ -213,12 +213,13 @@ export class ServerItemProvider implements vscode.TreeDataProvider<TreeNode> {
     private async loadArtifacts(group: DomainGroupItem): Promise<TreeNode[]> {
         try {
             let artifacts: ArtifactDTO[] = [];
+            const server = new Server(group.server);
 
             switch (group.domain) {
-                case 'dataset':   artifacts = await getCustomDatasets(group.server); break;
-                case 'form':      artifacts = await getForms(group.server); break;
-                case 'mechanism': artifacts = await getMechanisms(group.server); break;
-                case 'widget':    artifacts = await getWidgets(group.server); break;
+                case 'dataset':   artifacts = await getCustomDatasets(server); break;
+                case 'form':      artifacts = await getForms(server); break;
+                case 'mechanism': artifacts = await getMechanisms(server); break;
+                case 'widget':    artifacts = await getWidgets(server); break;
             }
 
             if (!artifacts.length) {

@@ -7,6 +7,7 @@ import { ServerDTO } from '../../types/server.types';
 import { WidgetFluiggersDTO } from './widget.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
+import { Server } from '../../core/server.model';
 import { markSynced, markError } from '../../core/sync-state';
 import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
@@ -72,8 +73,8 @@ export async function exportWidget(fileUri: Uri): Promise<void> {
         });
 }
 
-export async function exportFluiggersWidget(): Promise<void> {
-    const server = await getSelect();
+export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void> {
+    const server = serverDto ? new Server(serverDto) : await getSelect();
     if (!server) {
         return;
     }
@@ -117,6 +118,9 @@ export async function importWidget(): Promise<void> {
         if (!server) {
             return;
         }
+
+        const cookies = await loginAndGetCookies(server);
+        await validateServerHasFluiggersWidget(server, cookies);
 
         const widgets = await pickWidgets(server);
         if (!widgets?.length) {
@@ -195,7 +199,12 @@ export async function importWidget(): Promise<void> {
 
 export async function getWidgets(server: ServerDTO): Promise<WidgetFluiggersDTO[]> {
     const cookies = await loginAndGetCookies(server);
-    await validateServerHasFluiggersWidget(server, cookies);
+
+    try {
+        await validateServerHasFluiggersWidget(server, cookies);
+    } catch {
+        return [];
+    }
 
     return fetch(`${getHost(server)}/fluiggersWidget/api/widgets`, {
         method: 'GET',
