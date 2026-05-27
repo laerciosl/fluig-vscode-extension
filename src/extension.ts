@@ -13,8 +13,9 @@ import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { registerRuntimeCommands } from './core/commands/runtime.commands';
-import { onDidChangeSyncState, getStatus } from './core/sync-state';
+import { onDidChangeSyncState, getStatus, markSynced, markError } from './core/sync-state';
 import { logSuccess, logError, initOutput, disposeOutput } from './core/output';
+import { onArtifactSuccess, onArtifactError, disposeEventBus } from './core/event-bus';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     initOutput();
@@ -58,6 +59,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
     context.subscriptions.push(
         vscode.window.registerFileDecorationProvider(new SyncDecorationProvider()),
+
+        // Sync-state legacy listener (file decorations driven by markSynced/markError)
         onDidChangeSyncState(uri => {
             const status = getStatus(uri);
             const name = basename(uri.fsPath);
@@ -67,7 +70,23 @@ export async function activate(context: ExtensionContext): Promise<void> {
                 logError(`Falha ao exportar: ${name}`);
             }
         }),
-        { dispose: disposeOutput }
+
+        // Domain event bus — single place that reacts to artifact operations
+        onArtifactSuccess(e => {
+            const verb = e.operation === 'export' ? 'Exportado' : 'Importado';
+            logSuccess(`${verb}: ${e.name} → ${e.serverName}`);
+            if (e.uri) { markSynced(e.uri); }
+            window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
+        }),
+        onArtifactError(e => {
+            const verb = e.operation === 'export' ? 'exportar' : 'importar';
+            logError(`Falha ao ${verb}: ${e.name} — ${e.error}`);
+            if (e.uri) { markError(e.uri); }
+            window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
+        }),
+
+        { dispose: disposeOutput },
+        { dispose: disposeEventBus },
     );
 
     registerLibraryCommands(context);

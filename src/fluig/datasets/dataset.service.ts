@@ -8,8 +8,8 @@ import { mapDatasetResult } from './dataset.mapper';
 import { promptUniqueDatasetId } from './dataset.validator';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { markSynced, markError } from '../../core/sync-state';
-import { logInfo, logSuccess, logError } from '../../core/output';
+import { logInfo } from '../../core/output';
+import { emitSuccess, emitError } from '../../core/event-bus';
 import {
     apiFindAllDatasets,
     apiLoadDataset,
@@ -65,10 +65,9 @@ export async function importOne(): Promise<void> {
     if (existing.length === 1) {
         await workspace.fs.writeFile(Uri.file(existing[0]), Buffer.from(dataset.datasetImpl, 'utf-8'));
         window.showTextDocument(Uri.file(existing[0]));
-        window.showInformationMessage(`Dataset ${datasetId} atualizado com sucesso!`);
-        logSuccess(`Dataset importado: ${datasetId}`);
+        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
     } else {
-        await saveFile(datasetId, dataset.datasetImpl);
+        await saveFile(datasetId, dataset.datasetImpl, true, server.name);
     }
 }
 
@@ -105,10 +104,10 @@ export async function importMany(): Promise<void> {
                             Buffer.from(dataset.datasetImpl, 'utf-8')
                         );
                     } else {
-                        await saveFile(datasetId, dataset.datasetImpl, false);
+                        await saveFile(datasetId, dataset.datasetImpl, false, server.name);
                     }
 
-                    logSuccess(`Dataset importado: ${datasetId}`);
+                    emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -117,7 +116,7 @@ export async function importMany(): Promise<void> {
         }
     );
 
-    window.showInformationMessage(`${results.length} datasets foram importados.`);
+    window.showInformationMessage(`${results.length} dataset(s) importado(s).`);
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────
@@ -198,11 +197,9 @@ export async function exportOne(fileUri: Uri): Promise<void> {
         : await apiUpdateDataset(server, datasetStructure);
 
     if (result.content === 'OK') {
-        markSynced(fileUri);
-        window.showInformationMessage(`Dataset ${datasetId} exportado com sucesso!`);
+        emitSuccess({ kind: 'dataset', operation: 'export', name: datasetId, serverName: server.name, uri: fileUri });
     } else {
-        markError(fileUri);
-        window.showErrorMessage(`Falha ao exportar o dataset ${datasetId}!\n${result.message.message}`);
+        emitError({ kind: 'dataset', operation: 'export', name: datasetId, serverName: server.name, uri: fileUri, error: result.message?.message || 'Falha desconhecida' });
     }
 }
 
@@ -286,28 +283,24 @@ export async function exportFromFolder(folderUri: Uri): Promise<void> {
         );
     }
 
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
-
-    if (successful.length) {
-        window.showInformationMessage(`${successful.length} dataset(s) exportado(s) com sucesso`);
-    }
-    if (failed.length) {
-        window.showErrorMessage(
-            `Falha ao exportar ${failed.length} dataset(s):\n${failed.map(r => `${r.datasetId}: ${r.message}`).join('\n')}`
-        );
+    for (const r of results) {
+        if (r.success) {
+            emitSuccess({ kind: 'dataset', operation: 'export', name: r.datasetId, serverName: server.name });
+        } else {
+            emitError({ kind: 'dataset', operation: 'export', name: r.datasetId, serverName: server.name, error: r.message });
+        }
     }
 }
 
 // ── File helpers ───────────────────────────────────────────────────────────
 
-export async function saveFile(name: string, content: string, openFile = true): Promise<void> {
+export async function saveFile(name: string, content: string, openFile = true, serverName = ''): Promise<void> {
     const datasetUri = Uri.joinPath(getWorkspaceUri(), 'datasets', name + '.js');
     await workspace.fs.writeFile(datasetUri, Buffer.from(content, 'utf-8'));
 
     if (openFile) {
         window.showTextDocument(datasetUri);
-        window.showInformationMessage(`Dataset ${name} importado com sucesso!`);
+        emitSuccess({ kind: 'dataset', operation: 'import', name, serverName });
     }
 }
 

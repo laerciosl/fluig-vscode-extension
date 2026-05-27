@@ -66,13 +66,43 @@ Each Fluig artifact type follows the same pattern:
 3. Authentication goes through `sdk/hapi/login.client.ts`: standard `fetch`-based form login, or Puppeteer browser login for MFA-enabled servers. Cookies are cached in memory per server session.
 4. Passwords at rest are encrypted with AES-256-CBC via `core/crypto.service.ts`, using `env.machineId` as the key derivation input — so the config file is machine-specific.
 
+### Communication contracts
+
+These are the stable interfaces that all parts of the extension must respect.
+
+**1. Event Bus (`src/core/event-bus.ts`)**
+
+The single place that reacts to artifact operations. Services never show toasts, never call `markSynced`/`markError`, never call `logSuccess`/`logError` directly. Instead they emit domain events; `extension.ts` listens and orchestrates side effects.
+
+```
+Service → emitSuccess({ kind, operation, name, serverName, uri? })
+          emitError({ ...event, error })
+
+extension.ts listeners →
+  ├─ logSuccess/logError (output channel)
+  ├─ markSynced/markError (file decoration)
+  └─ window.showInformation/ErrorMessage (toast)
+```
+
+**2. Service contract (`fluig/<domain>/*.service.ts`)**
+
+Services may import `vscode` only for: `Uri`, `workspace.fs`, `window.withProgress`, `window.showQuickPick`, `window.showInputBox`, `window.showTextDocument`. They must **not** import `window.showInformationMessage`, `window.showErrorMessage`, `window.showWarningMessage`, `logSuccess`, `logError`, `markSynced`, or `markError` — those go through `emitSuccess`/`emitError`.
+
+**3. SDK contract (`packages/sdk/`)**
+
+All Fluig HTTP calls go through `fetchWithAuth(server, url, options?, timeoutMs?)`. This handles: cookie injection, 401 retry with re-login, AbortController timeout (default 30s, workflow 120s). Direct `fetch()` calls in the SDK are forbidden — use `fetchWithAuth`.
+
+**4. DTOs**
+
+Types live in `packages/sdk/src/types/` (shared SDK types) or `src/fluig/<domain>/*.types.ts` (domain-specific). Re-exported via `src/types/*.ts` for use in `core/` and `fluig/`. Never create a file named `types.ts`, `interfaces.ts`, or `dto.ts`.
+
 ### Domain file roles
 
 Each domain folder under `fluig/` uses up to four file roles:
 
 | Suffix | Responsibility |
 |---|---|
-| `.service.ts` | Orchestrates import/export; calls sdk/, shows VS Code UI |
+| `.service.ts` | Orchestrates import/export; calls sdk/; emits events via event-bus; keeps Progress/QuickPick/InputBox |
 | `.types.ts` | DTOs and domain-specific interfaces |
 | `.mapper.ts` | Transforms raw API data into domain structures |
 | `.validator.ts` | Input validation (e.g. unique dataset name loop) |
