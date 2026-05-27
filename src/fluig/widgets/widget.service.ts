@@ -8,7 +8,9 @@ import { WidgetFluiggersDTO } from './widget.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { Server } from '../../core/server.model';
-import { logInfo } from '../../core/output';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('[WIDGET]');
 import { emitSuccess, emitError } from '../../core/event-bus';
 import { fetchWithAuth, loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
@@ -25,7 +27,7 @@ export async function exportWidget(fileUri: Uri): Promise<void> {
     }
 
     const widgetName = fileUri.path.replace(/.*\/widget\/([^/]+).*/, '$1');
-    logInfo(`Exportando widget: ${widgetName} → ${server.name}`);
+    log.info(`Exportando widget: ${widgetName} → ${server.name}`);
     const widgetUri = Uri.joinPath(getWorkspaceUri(), 'wcm', 'widget', widgetName);
     const zipStream = new JSZip();
     zipStream.folder('WEB-INF');
@@ -91,7 +93,7 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
         return;
     }
 
-    logInfo(`Instalando FluiggersWidget → ${server.name}`);
+    log.info(`Instalando FluiggersWidget → ${server.name}`);
     try {
         const downloaded = await fetch(
             'https://raw.githubusercontent.com/fluiggers/fluig-widget-helper/refs/heads/master/target/fluiggersWidget.war'
@@ -132,7 +134,7 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
 // ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
 
 export async function importWidgetFromTree(server: ServerDTO, widget: WidgetFluiggersDTO): Promise<void> {
-    logInfo(`Importando widget: ${widget.code} ← ${server.name}`);
+    log.info(`Importando widget: ${widget.code} ← ${server.name}`);
     const widgetUri = Uri.joinPath(getWorkspaceUri(), 'wcm', 'widget', widget.code);
 
     try {
@@ -177,7 +179,7 @@ export async function importWidget(): Promise<void> {
             return;
         }
 
-        logInfo(`Importando ${widgets.length} widget(s) ← ${server.name}`);
+        log.info(`Importando ${widgets.length} widget(s) ← ${server.name}`);
         const results = await window.withProgress(
             { location: ProgressLocation.Notification, title: 'Importando Widgets.', cancellable: false },
             progress => {

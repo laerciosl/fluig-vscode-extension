@@ -6,7 +6,10 @@ import { exportOne as exportGlobalEvent } from '../fluig/events/global-event.ser
 import { updateWorkflowEvents, exportMechanism } from '../fluig/workflow/workflow.service';
 import { exportWidget } from '../fluig/widgets/widget.service';
 import { getRuntime } from './runtime-state';
-import { logInfo } from './output';
+import { createLogger } from './logger';
+
+const watchLog = createLogger('[WATCH]');
+const deployLog = createLogger('[DEPLOY]');
 
 const CONFIG_KEY = 'autoExportOnSave';
 const DEBOUNCE_MS = 500;
@@ -53,13 +56,21 @@ async function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionConte
 
 function scheduleExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): void {
     const name = basename(fileUri.fsPath);
+    watchLog.debug(`Agendando exportação: ${name}`);
     getRuntime().deployQueue.enqueue(
         fileUri.fsPath,
         async () => {
-            logInfo(`Exportando: ${name}`);
+            watchLog.info(`Exportando: ${name}`);
             await resolveExport(fileUri, context);
         },
-        { debounceMs: DEBOUNCE_MS, maxRetries: MAX_RETRIES }
+        {
+            debounceMs: DEBOUNCE_MS,
+            maxRetries: MAX_RETRIES,
+            onRetry: (attempt, err) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                deployLog.info(`Retry ${attempt}/${MAX_RETRIES}: ${name} — ${msg}`);
+            },
+        }
     );
 }
 

@@ -2,7 +2,9 @@ import { window } from 'vscode';
 import { ServerDTO } from '../../types/server.types';
 import { Server } from '../../core/server.model';
 import { getSelect } from '../../core/server.service';
-import { logInfo, showOutput } from '../../core/output';
+import { createLogger, showLogger } from '../../core/logger';
+
+const log = createLogger('[HEALTH]');
 import {
     loginAndGetCookies,
     getUser,
@@ -20,8 +22,8 @@ export async function testConnection(serverDto?: ServerDTO): Promise<void> {
         return;
     }
 
-    showOutput();
-    logInfo(`═══ Testando conexão: ${server.name} ═══`);
+    showLogger();
+    log.info(`═══ Testando conexão: ${server.name} ═══`);
 
     let cookies = '';
     const failures: string[] = [];
@@ -29,12 +31,12 @@ export async function testConnection(serverDto?: ServerDTO): Promise<void> {
     // 1. Login
     try {
         cookies = await withTimeout(loginAndGetCookies(server), TIMEOUT_MS);
-        logInfo(`  ✔ Login (${server.username})`);
+        log.info(`  ✔ Login (${server.username})`);
     } catch (e: any) {
         const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));
-        logInfo(`  ✖ Login: ${msg}`);
+        log.info(`  ✖ Login: ${msg}`);
         failures.push(`Login: ${msg}`);
-        logInfo(`══ ${failures.length} falha(s) — diagnóstico encerrado (sem sessão) ══`);
+        log.info(`══ ${failures.length} falha(s) — diagnóstico encerrado (sem sessão) ══`);
         window.showErrorMessage(`Falha ao conectar em ${server.name}: ${msg}`);
         return;
     }
@@ -43,23 +45,23 @@ export async function testConnection(serverDto?: ServerDTO): Promise<void> {
     try {
         const userResp: any = await withTimeout(getUser(server), TIMEOUT_MS);
         if (userResp?.content) {
-            logInfo(`  ✔ Tenant/Usuário (${server.companyId})`);
+            log.info(`  ✔ Tenant/Usuário (${server.companyId})`);
         } else {
             throw new Error(userResp?.message?.message || 'resposta inesperada');
         }
     } catch (e: any) {
         const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));
-        logInfo(`  ✖ Tenant/Usuário: ${msg}`);
+        log.info(`  ✖ Tenant/Usuário: ${msg}`);
         failures.push(`Tenant: ${msg}`);
     }
 
     // 3. Dataset API (SOAP)
     try {
         await withTimeout(apiFindAllDatasets(server), TIMEOUT_MS);
-        logInfo(`  ✔ Dataset API (SOAP)`);
+        log.info(`  ✔ Dataset API (SOAP)`);
     } catch (e: any) {
         const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));
-        logInfo(`  ✖ Dataset API (SOAP): ${msg}`);
+        log.info(`  ✖ Dataset API (SOAP): ${msg}`);
         failures.push(`Dataset API: ${msg}`);
     }
 
@@ -71,32 +73,32 @@ export async function testConnection(serverDto?: ServerDTO): Promise<void> {
             TIMEOUT_MS
         );
         if (r.ok) {
-            logInfo(`  ✔ Workflow API (REST)`);
+            log.info(`  ✔ Workflow API (REST)`);
         } else {
             throw new Error(`HTTP ${r.status}`);
         }
     } catch (e: any) {
         const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));
-        logInfo(`  ✖ Workflow API (REST): ${msg}`);
+        log.info(`  ✖ Workflow API (REST): ${msg}`);
         failures.push(`Workflow API: ${msg}`);
     }
 
     // 5. FluiggersWidget
     try {
         await withTimeout(validateServerHasFluiggersWidget(server, cookies), TIMEOUT_MS);
-        logInfo(`  ✔ FluiggersWidget`);
+        log.info(`  ✔ FluiggersWidget`);
     } catch (e: any) {
         const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e));
-        logInfo(`  ✖ FluiggersWidget: ${msg}`);
+        log.info(`  ✖ FluiggersWidget: ${msg}`);
         failures.push(`FluiggersWidget: ${msg}`);
     }
 
     // Summary
     if (failures.length === 0) {
-        logInfo(`══ ✔ Todos os testes passaram ══`);
+        log.info(`══ ✔ Todos os testes passaram ══`);
         window.showInformationMessage(`Conexão com ${server.name} OK — todos os serviços responderam.`);
     } else {
-        logInfo(`══ ✖ ${failures.length} falha(s) encontrada(s) ══`);
+        log.info(`══ ✖ ${failures.length} falha(s) encontrada(s) ══`);
         window.showWarningMessage(
             `${failures.length} problema(s) em ${server.name}. Veja o Output "Fluig" para detalhes.`
         );

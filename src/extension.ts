@@ -1,7 +1,7 @@
 import { ExtensionContext, Uri, workspace, window, ConfigurationTarget } from 'vscode';
 import * as vscode from 'vscode';
 import { basename } from 'path';
-import { setBrowserPathProvider } from '@fluiggers/sdk';
+import { setBrowserPathProvider, setSdkLoggers } from '@fluiggers/sdk';
 import { TemplateService } from './core/template.service';
 import { registerLibraryCommands } from './core/commands/library.commands';
 import { registerDatasetCommands } from './core/commands/dataset.commands';
@@ -14,13 +14,16 @@ import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { registerRuntimeCommands } from './core/commands/runtime.commands';
 import { RuntimeState, initRuntime } from './core/runtime-state';
-import { logSuccess, logError, initOutput, disposeOutput } from './core/output';
+import { createLogger, initLogger, disposeLogger } from './core/logger';
 import { onArtifactSuccess, onArtifactError, disposeEventBus } from './core/event-bus';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     const runtime = new RuntimeState();
     initRuntime(runtime);
-    initOutput();
+    initLogger();
+
+    const syncLog = createLogger('[SYNC]');
+    setSdkLoggers(createLogger('[AUTH]'), createLogger('[HTTP]'));
 
     if (!workspace.workspaceFolders) {
         window.showWarningMessage(
@@ -69,16 +72,16 @@ export async function activate(context: ExtensionContext): Promise<void> {
             const status = runtime.getStatus(uri);
             const name = basename(uri.fsPath);
             if (status === 'synced') {
-                logSuccess(`Sincronizado: ${name}`);
+                syncLog.success(`Sincronizado: ${name}`);
             } else if (status === 'error') {
-                logError(`Falha ao exportar: ${name}`);
+                syncLog.error(`Falha ao exportar: ${name}`);
             }
         }),
 
         // Domain event bus — single place that reacts to artifact operations
         onArtifactSuccess(e => {
             const verb = e.operation === 'export' ? 'Exportado' : 'Importado';
-            logSuccess(`${verb}: ${e.name} → ${e.serverName}`);
+            syncLog.success(`${verb}: ${e.name} → ${e.serverName}`);
             if (e.uri) { runtime.markSynced(e.uri); }
             if (!e.silent) {
                 window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
@@ -86,14 +89,14 @@ export async function activate(context: ExtensionContext): Promise<void> {
         }),
         onArtifactError(e => {
             const verb = e.operation === 'export' ? 'exportar' : 'importar';
-            logError(`Falha ao ${verb}: ${e.name} — ${e.error}`);
+            syncLog.error(`Falha ao ${verb}: ${e.name} — ${e.error}`);
             if (e.uri) { runtime.markError(e.uri); }
             if (!e.silent) {
                 window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
             }
         }),
 
-        { dispose: disposeOutput },
+        { dispose: disposeLogger },
         { dispose: disposeEventBus },
     );
 

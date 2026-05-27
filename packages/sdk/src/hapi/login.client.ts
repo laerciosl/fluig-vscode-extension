@@ -2,6 +2,7 @@ import { Client, createClientAsync, IOptions } from 'soap';
 import { ServerDTO } from '../types/server.types';
 import { CookieCache } from '../types/auth.types';
 import { getHost } from './http.client';
+import { getAuthLogger, getHttpLogger } from '../sdk-logger';
 import * as puppeteer from 'puppeteer-core';
 
 // ── Browser path injection ────────────────────────────────────────────────────
@@ -25,20 +26,30 @@ export async function loginAndGetCookies(server: ServerDTO): Promise<string> {
 
     if (cookies) {
         if (await isValidCookies(cookies, server)) {
+            getAuthLogger().debug(`Cookie válido em cache: ${server.host}`);
             return cookies;
         }
+        getAuthLogger().debug(`Cookie expirado, re-autenticando: ${server.host}`);
         delete cachedCookies[key];
     }
 
+    getAuthLogger().info(`Autenticando: ${server.host} (${server.hasBrowser ? 'browser' : 'form'})`);
     cookies = server.hasBrowser
         ? await tryBrowserAuthenticate(server)
         : await tryAuthenticate(server);
 
     if (isAuthenticated(cookies) && !await isValidCookies(cookies, server)) {
+        getAuthLogger().debug(`Sessão inválida após login, ativando demo mode: ${server.host}`);
         await setDemoMode(server);
         cookies = server.hasBrowser
             ? await tryBrowserAuthenticate(server)
             : await tryAuthenticate(server);
+    }
+
+    if (isAuthenticated(cookies)) {
+        getAuthLogger().info(`Autenticado com sucesso: ${server.host}`);
+    } else {
+        getAuthLogger().error(`Falha na autenticação: ${server.host}`);
     }
 
     cachedCookies[key] = cookies;
@@ -59,6 +70,7 @@ export async function createAuthenticatedClientAsync(
 }
 
 export function clearCookies(server: ServerDTO): void {
+    getAuthLogger().debug(`Cookie limpo: ${server.host}`);
     delete cachedCookies[getCookiesKey(server)];
 }
 
@@ -83,6 +95,7 @@ export async function fetchWithAuth(
 
     const response = await doFetch();
     if (response.status === 401) {
+        getHttpLogger().debug(`401 recebido, re-autenticando: ${String(url)}`);
         clearCookies(server);
         return doFetch();
     }

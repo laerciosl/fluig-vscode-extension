@@ -8,7 +8,9 @@ import {
 import { checkServerConfigVersion } from '../server.service';
 import { Server } from '../server.model';
 import { getRuntime } from '../runtime-state';
-import { logInfo } from '../output';
+import { createLogger } from '../logger';
+
+const log = createLogger('[SERVER]');
 import { testConnection } from '../../fluig/health/health.service';
 
 export async function registerServerCommands(context: vscode.ExtensionContext): Promise<void> {
@@ -55,14 +57,14 @@ export async function registerServerCommands(context: vscode.ExtensionContext): 
             'fluiggers-fluig-vscode-extension.connectServer',
             (serverItem: ServerItem) => {
                 getRuntime().selectServer(new Server(serverItem.server));
-                logInfo(`● Conectado ao servidor: ${serverItem.server.name}`);
+                log.info(`● Conectado ao servidor: ${serverItem.server.name}`);
             }
         ),
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.disconnectServer',
             (serverItem: ServerItem) => {
                 getRuntime().deselectServer();
-                logInfo(`○ Desconectado do servidor: ${serverItem.server.name}`);
+                log.info(`○ Desconectado do servidor: ${serverItem.server.name}`);
             }
         ),
         vscode.commands.registerCommand(

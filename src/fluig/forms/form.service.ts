@@ -7,7 +7,9 @@ import { DocumentDTO, FormDTO, AttachmentDTO, CustomizationEventsDTO } from './f
 import { buildCreateFormParams, buildUpdateFormParams } from './form.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { logInfo } from '../../core/output';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('[FORM]');
 import { emitSuccess, emitError } from '../../core/event-bus';
 import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
@@ -86,7 +88,7 @@ export function getCustomizationEvents(
 // ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
 
 export async function importFormFromTree(server: ServerDTO, form: DocumentDTO): Promise<void> {
-    logInfo(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
+    log.info(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
     await writeFormFiles(server, form, getWorkspaceUri());
     emitSuccess({ kind: 'form', operation: 'import', name: form.documentDescription, serverName: server.name });
 }
@@ -104,7 +106,7 @@ export async function importOne(): Promise<void> {
         return;
     }
 
-    logInfo(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
+    log.info(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
     await writeFormFiles(server, form, getWorkspaceUri());
     emitSuccess({ kind: 'form', operation: 'import', name: form.documentDescription, serverName: server.name });
 }
@@ -120,7 +122,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
-    logInfo(`Importando ${forms.length} formulário(s) ← ${server.name}`);
+    log.info(`Importando ${forms.length} formulário(s) ← ${server.name}`);
     const workspaceUri = getWorkspaceUri();
 
     const results = await window.withProgress(
@@ -162,7 +164,7 @@ export async function exportOne(context: ExtensionContext, fileUri: Uri): Promis
 
     const formFolderName = fileUri.path.replace(/.*\/forms\/([^/]+).*/, '$1');
     const formName = formFolderName.replace(/^(?:\d+ - )?(\w+)$/, '$1');
-    logInfo(`Exportando formulário: ${formName} → ${server.name}`);
+    log.info(`Exportando formulário: ${formName} → ${server.name}`);
 
     const selectedForm = await pickExportTarget(server, formName);
     if (!selectedForm) {

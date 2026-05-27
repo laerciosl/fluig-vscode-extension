@@ -4,6 +4,10 @@ export type { CookieCache, JwtPayload } from './types/auth.types';
 export type { FluigApiResponse, FluigListResponse } from './types/api.types';
 export type { DatasetDTO, DatasetStructureDTO } from './dataset/dataset.types';
 
+// Logger injection
+export type { SdkLogger } from './sdk-logger';
+export { setSdkLoggers } from './sdk-logger';
+
 // HTTP utilities
 export {
     getHost,

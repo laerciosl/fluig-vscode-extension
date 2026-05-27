@@ -5,7 +5,9 @@ import { ServerDTO } from '../../types/server.types';
 import { GlobalEventDTO } from './global-event.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { logInfo } from '../../core/output';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('[EVENT]');
 import { emitSuccess, emitError } from '../../core/event-bus';
 import { fetchWithAuth, getRestUrl } from '@fluiggers/sdk';
 
@@ -67,7 +69,7 @@ export async function importOne(): Promise<void> {
         return;
     }
 
-    logInfo(`Importando evento global: ${event.globalEventPK.eventId} ← ${server.name}`);
+    log.info(`Importando evento global: ${event.globalEventPK.eventId} ← ${server.name}`);
     await saveFile(server, event.globalEventPK.eventId, event.eventDescription);
 }
 
@@ -82,7 +84,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
-    logInfo(`Importando ${eventList.length} evento(s) global(is) ← ${server.name}`);
+    log.info(`Importando ${eventList.length} evento(s) global(is) ← ${server.name}`);
     const results = await window.withProgress(
         { location: ProgressLocation.Notification, title: 'Importando Eventos Globais.', cancellable: false },
         progress => {
@@ -117,7 +119,7 @@ export async function exportOne(fileUri: Uri): Promise<void> {
     }
 
     const globalEventId = basename(fileUri.fsPath, '.js');
-    logInfo(`Exportando evento global: ${globalEventId} → ${server.name}`);
+    log.info(`Exportando evento global: ${globalEventId} → ${server.name}`);
 
     let globalEvents: GlobalEventDTO[];
     try {

@@ -7,6 +7,8 @@ export interface EnqueueOptions {
     maxRetries?: number;
     /** Base delay between retries in ms; doubles on each attempt (exponential backoff). */
     retryBaseMs?: number;
+    /** Called before each retry with the attempt number (1-based) and the caught error. */
+    onRetry?: (attempt: number, error: unknown) => void;
 }
 
 interface Entry {
@@ -38,6 +40,7 @@ export class DeployQueue {
             debounceMs: 0,
             maxRetries: 0,
             retryBaseMs: 1000,
+            onRetry: () => {},
             ...options,
         };
 
@@ -134,9 +137,10 @@ export class DeployQueue {
             try {
                 await entry.fn();
                 return;
-            } catch {
+            } catch (err) {
                 if (attempt >= entry.opts.maxRetries) { return; }
                 attempt++;
+                entry.opts.onRetry(attempt, err);
                 await sleep(entry.opts.retryBaseMs * (2 ** (attempt - 1)));
                 if (entry.cancelled) { return; }
             }

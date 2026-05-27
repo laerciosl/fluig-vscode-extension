@@ -8,7 +8,9 @@ import { mapDatasetResult } from './dataset.mapper';
 import { promptUniqueDatasetId } from './dataset.validator';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { logInfo } from '../../core/output';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('[DATASET]');
 import { emitSuccess, emitError } from '../../core/event-bus';
 import {
     apiFindAllDatasets,
@@ -58,7 +60,7 @@ export async function importOne(): Promise<void> {
     }
 
     const datasetId = dataset.datasetPK.datasetId;
-    logInfo(`Importando dataset: ${datasetId} ← ${server.name}`);
+    log.info(`Importando dataset: ${datasetId} ← ${server.name}`);
     const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
 
@@ -82,7 +84,7 @@ export async function importMany(): Promise<void> {
         return;
     }
 
-    logInfo(`Importando ${selections.length} dataset(s) ← ${server.name}`);
+    log.info(`Importando ${selections.length} dataset(s) ← ${server.name}`);
     const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
 
     const results = await window.withProgress(
@@ -131,7 +133,7 @@ export async function exportOne(fileUri: Uri): Promise<void> {
     const items: { label: string }[] = [];
     let datasetIdSelected = '';
     let datasetId = basename(fileUri.fsPath, '.js');
-    logInfo(`Exportando dataset: ${datasetId} → ${server.name}`);
+    log.info(`Exportando dataset: ${datasetId} → ${server.name}`);
 
     for (const ds of datasets) {
         if (ds.datasetId !== datasetId) {
@@ -307,7 +309,7 @@ export async function saveFile(name: string, content: string, openFile = true, s
 // ── Tree-based import (pre-resolved item, no QuickPick) ───────────────────
 
 export async function importDatasetFromTree(server: ServerDTO, datasetId: string): Promise<void> {
-    logInfo(`Importando dataset: ${datasetId} ← ${server.name}`);
+    log.info(`Importando dataset: ${datasetId} ← ${server.name}`);
     const dataset: any = await apiLoadDataset(server, datasetId);
     const folderUri = Uri.joinPath(getWorkspaceUri(), 'datasets');
     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });

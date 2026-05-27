@@ -4,11 +4,13 @@ import { basename } from 'path';
 import { runInSandbox } from './sandbox';
 import { scaffoldMockDir } from './fixture.loader';
 import { MockDataset } from './mocks/dataset-factory.mock';
-import { logInfo, logSuccess, logError } from '../../core/output';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('[RUNTIME]');
 
 export async function runDatasetLocally(fileUri: Uri): Promise<void> {
     const fileName = basename(fileUri.fsPath);
-    logInfo(`─── Runtime local: ${fileName} ───`);
+    log.info(`─── Runtime local: ${fileName} ───`);
 
     scaffoldMockDir();
 
@@ -16,7 +18,7 @@ export async function runDatasetLocally(fileUri: Uri): Promise<void> {
     try {
         code = readFileSync(fileUri.fsPath, 'utf-8');
     } catch (err: any) {
-        logError(`Erro ao ler arquivo: ${err.message}`);
+        log.error(`Erro ao ler arquivo: ${err.message}`);
         return;
     }
 
@@ -26,23 +28,23 @@ export async function runDatasetLocally(fileUri: Uri): Promise<void> {
     );
 
     for (const entry of result.logs) {
-        logInfo(entry);
+        log.info(entry);
     }
 
     if (result.error) {
-        logError(`${fileName}: ${result.error}`);
+        log.error(`${fileName}: ${result.error}`);
         window.showErrorMessage(`Runtime error: ${result.error}`);
         return;
     }
 
     if (result.dataset) {
         renderTable(result.dataset, fileName, result.elapsedMs);
-        logSuccess(`${result.dataset.rowsCount} linha(s) em ${result.elapsedMs}ms`);
+        log.success(`${result.dataset.rowsCount} linha(s) em ${result.elapsedMs}ms`);
         window.showInformationMessage(
             `Dataset executado: ${result.dataset.rowsCount} linha(s) em ${result.elapsedMs}ms`
         );
     } else {
-        logSuccess(`Concluído em ${result.elapsedMs}ms — createDataset não retornou dataset`);
+        log.success(`Concluído em ${result.elapsedMs}ms — createDataset não retornou dataset`);
     }
 }
 
@@ -51,7 +53,7 @@ function renderTable(dataset: MockDataset, fileName: string, elapsedMs: number):
     const rows = dataset.rows();
 
     if (!cols.length) {
-        logInfo('(sem colunas)');
+        log.info('(sem colunas)');
         return;
     }
 
@@ -66,12 +68,12 @@ function renderTable(dataset: MockDataset, fileName: string, elapsedMs: number):
     const row = (values: (string | number | null | undefined)[]) =>
         '│' + values.map((v, i) => ` ${String(v ?? '').padEnd(widths[i])} `).join('│') + '│';
 
-    logInfo(bar('┌', '┬', '┐'));
-    logInfo(row(cols));
-    logInfo(bar('├', '┼', '┤'));
+    log.info(bar('┌', '┬', '┐'));
+    log.info(row(cols));
+    log.info(bar('├', '┼', '┤'));
     for (const r of rows) {
-        logInfo(row(r));
+        log.info(row(r));
     }
-    logInfo(bar('└', '┴', '┘'));
-    logInfo(`${rows.length} linha(s) │ ${elapsedMs}ms │ ${fileName}`);
+    log.info(bar('└', '┴', '┘'));
+    log.info(`${rows.length} linha(s) │ ${elapsedMs}ms │ ${fileName}`);
 }
