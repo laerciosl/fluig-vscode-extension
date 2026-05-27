@@ -65,9 +65,10 @@ export async function importOne(): Promise<void> {
     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
 
     if (existing.length === 1) {
-        await workspace.fs.writeFile(Uri.file(existing[0]), Buffer.from(dataset.datasetImpl, 'utf-8'));
-        window.showTextDocument(Uri.file(existing[0]));
-        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
+        const fileUri = Uri.file(existing[0]);
+        await workspace.fs.writeFile(fileUri, Buffer.from(dataset.datasetImpl, 'utf-8'));
+        window.showTextDocument(fileUri);
+        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name, uri: fileUri });
     } else {
         await saveFile(datasetId, dataset.datasetImpl, true, server.name);
     }
@@ -101,15 +102,12 @@ export async function importMany(): Promise<void> {
                     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
 
                     if (existing.length === 1) {
-                        await workspace.fs.writeFile(
-                            Uri.file(existing[0]),
-                            Buffer.from(dataset.datasetImpl, 'utf-8')
-                        );
+                        const fileUri = Uri.file(existing[0]);
+                        await workspace.fs.writeFile(fileUri, Buffer.from(dataset.datasetImpl, 'utf-8'));
+                        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name, uri: fileUri, silent: true });
                     } else {
                         await saveFile(datasetId, dataset.datasetImpl, false, server.name);
                     }
-
-                    emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -299,10 +297,9 @@ export async function exportFromFolder(folderUri: Uri): Promise<void> {
 export async function saveFile(name: string, content: string, openFile = true, serverName = ''): Promise<void> {
     const datasetUri = Uri.joinPath(getWorkspaceUri(), 'datasets', name + '.js');
     await workspace.fs.writeFile(datasetUri, Buffer.from(content, 'utf-8'));
-
+    emitSuccess({ kind: 'dataset', operation: 'import', name, serverName, uri: datasetUri, silent: !openFile });
     if (openFile) {
         window.showTextDocument(datasetUri);
-        emitSuccess({ kind: 'dataset', operation: 'import', name, serverName });
     }
 }
 
@@ -315,12 +312,20 @@ export async function importDatasetFromTree(server: ServerDTO, datasetId: string
     const existing = glob.sync(`${folderUri.fsPath}/**/${datasetId}.js`, { nodir: true });
 
     if (existing.length === 1) {
-        await workspace.fs.writeFile(Uri.file(existing[0]), Buffer.from(dataset.datasetImpl, 'utf-8'));
-        window.showTextDocument(Uri.file(existing[0]));
-        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name });
+        const fileUri = Uri.file(existing[0]);
+        await workspace.fs.writeFile(fileUri, Buffer.from(dataset.datasetImpl, 'utf-8'));
+        window.showTextDocument(fileUri);
+        emitSuccess({ kind: 'dataset', operation: 'import', name: datasetId, serverName: server.name, uri: fileUri });
     } else {
         await saveFile(datasetId, dataset.datasetImpl, true, server.name);
     }
+}
+
+// ── Remote content for diff ────────────────────────────────────────────────
+
+export async function getDatasetContent(server: ServerDTO, datasetId: string): Promise<string> {
+    const dataset: any = await apiLoadDataset(server, datasetId);
+    return (dataset?.datasetImpl as string) ?? '';
 }
 
 // ── QuickPick helpers ──────────────────────────────────────────────────────

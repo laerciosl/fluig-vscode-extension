@@ -224,11 +224,21 @@ async function saveFile(server: ServerDTO, name: string, content: string, openFi
         operation: 'import',
         name,
         serverName: server.name,
+        uri,
         silent: !openFile,
     });
     if (openFile) {
         window.showTextDocument(uri);
     }
+}
+
+// ── Remote content for diff ────────────────────────────────────────────────
+
+export async function getGlobalEventContent(server: ServerDTO, eventId: string): Promise<string> {
+    const eventList = await apiGetEventList(server);
+    const event = eventList.find(e => e.globalEventPK.eventId === eventId);
+    if (!event) { throw new Error(`Evento global não encontrado: ${eventId}`); }
+    return event.eventDescription;
 }
 
 // ── QuickPick helpers ──────────────────────────────────────────────────────

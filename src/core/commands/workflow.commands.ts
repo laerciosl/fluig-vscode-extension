@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { basename } from 'path';
 import { createWorkflowEvent, createMechanism } from '../generators/workflow.generator';
 import {
     updateWorkflowEvents,
@@ -7,6 +8,8 @@ import {
     exportMechanism,
 } from '../../fluig/workflow/workflow.service';
 import { WorkflowProvider, WorkflowEventItem, WorkflowProcessItem } from '../providers/workflow.provider';
+import { getRuntime } from '../runtime-state';
+import { buildRemoteUri } from '../diff-provider';
 
 export function registerWorkflowCommands(context: vscode.ExtensionContext): void {
     const provider = new WorkflowProvider();
@@ -81,6 +84,68 @@ export function registerWorkflowCommands(context: vscode.ExtensionContext): void
                     fileUri = vscode.window.activeTextEditor.document.uri;
                 }
                 exportMechanism(fileUri);
+            }
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.diffMechanism',
+            async (fileUri: vscode.Uri | undefined) => {
+                const server = getRuntime().activeServer;
+                if (!server) {
+                    vscode.window.showErrorMessage('Conecte a um servidor para comparar.');
+                    return;
+                }
+                const uri = fileUri instanceof vscode.Uri ? fileUri : vscode.window.activeTextEditor?.document.uri;
+                if (!uri) {
+                    vscode.window.showErrorMessage('Nenhum arquivo de mecanismo selecionado.');
+                    return;
+                }
+                const mechanismId = basename(uri.fsPath, '.js');
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    buildRemoteUri('mechanism', mechanismId),
+                    uri,
+                    `${mechanismId}: Fluig ↔ Local`
+                );
+            }
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.diffWorkflowEvent',
+            async (item: WorkflowEventItem | vscode.Uri | undefined) => {
+                const server = getRuntime().activeServer;
+                if (!server) {
+                    vscode.window.showErrorMessage('Conecte a um servidor para comparar.');
+                    return;
+                }
+
+                let localUri: vscode.Uri;
+                let processId: string;
+                let eventName: string;
+
+                if (item instanceof WorkflowEventItem) {
+                    localUri = vscode.Uri.file(item.filePath);
+                    processId = item.processId;
+                    eventName = item.eventName;
+                } else {
+                    const fileUri = item instanceof vscode.Uri ? item : vscode.window.activeTextEditor?.document.uri;
+                    if (!fileUri) {
+                        vscode.window.showErrorMessage('Nenhum arquivo de evento de processo selecionado.');
+                        return;
+                    }
+                    localUri = fileUri;
+                    const match = fileUri.fsPath.match(/([^/\\]+)\.([^.]+)\.js$/);
+                    if (!match) {
+                        vscode.window.showErrorMessage('Nome do arquivo inválido. Esperado: {processo}.{evento}.js');
+                        return;
+                    }
+                    [, processId, eventName] = match;
+                }
+
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    buildRemoteUri('workflow-event', `${processId}/${eventName}`),
+                    localUri,
+                    `${processId}.${eventName}: Fluig ↔ Local`
+                );
             }
         )
     );

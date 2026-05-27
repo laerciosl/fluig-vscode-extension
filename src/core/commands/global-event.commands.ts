@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { basename } from 'path';
 import { createGlobalEvent } from '../generators/global-event.generator';
 import {
     importOne,
@@ -6,6 +7,8 @@ import {
     exportOne,
     deleteEvents,
 } from '../../fluig/events/global-event.service';
+import { getRuntime } from '../runtime-state';
+import { buildRemoteUri } from '../diff-provider';
 
 export function registerGlobalEventCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
@@ -37,6 +40,28 @@ export function registerGlobalEventCommands(context: vscode.ExtensionContext): v
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.deleteGlobalEvent',
             deleteEvents
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.diffGlobalEvent',
+            async (fileUri: vscode.Uri | undefined) => {
+                const server = getRuntime().activeServer;
+                if (!server) {
+                    vscode.window.showErrorMessage('Conecte a um servidor para comparar.');
+                    return;
+                }
+                const uri = fileUri instanceof vscode.Uri ? fileUri : vscode.window.activeTextEditor?.document.uri;
+                if (!uri) {
+                    vscode.window.showErrorMessage('Nenhum arquivo de evento global selecionado.');
+                    return;
+                }
+                const eventId = basename(uri.fsPath, '.js');
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    buildRemoteUri('global-event', eventId),
+                    uri,
+                    `${eventId}: Fluig ↔ Local`
+                );
+            }
         )
     );
 }

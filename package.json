@@ -304,6 +304,30 @@
 			{
 				"command": "fluiggers-fluig-vscode-extension.exportWorkflowEventItem",
 				"title": "Exportar Evento"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.diffDataset",
+				"title": "Comparar com Fluig",
+				"category": "Fluig",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.diffGlobalEvent",
+				"title": "Comparar com Fluig",
+				"category": "Fluig",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.diffMechanism",
+				"title": "Comparar com Fluig",
+				"category": "Fluig",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.diffWorkflowEvent",
+				"title": "Comparar com Fluig",
+				"category": "Fluig",
+				"icon": "$(diff)"
 			}
 		],
 		"menus": {
@@ -475,6 +499,26 @@
 				{
 					"command": "fluiggers-fluig-vscode-extension.importWidget",
 					"group": "1_Fluig5WCM@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffDataset",
+					"when": "resourcePath =~ /[\\/\\\\]datasets[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig1Dataset@3"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffGlobalEvent",
+					"when": "resourcePath =~ /[\\/\\\\]events[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig3GlobalEvent@0"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffMechanism",
+					"when": "resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig4Workflow@0"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffWorkflowEvent",
+					"when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig4Workflow@0"
 				}
 			],
 			"view/title": [
@@ -611,6 +655,16 @@
 					"command": "fluiggers-fluig-vscode-extension.exportWorkflowEventItem",
 					"when": "view == fluiggers-fluig-vscode-extension.workflows && viewItem == fluigWorkflowEvent",
 					"group": "1_export@1"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffDataset",
+					"when": "view == fluiggers-fluig-vscode-extension.datasets && viewItem == fluigDatasetItem",
+					"group": "inline@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffWorkflowEvent",
+					"when": "view == fluiggers-fluig-vscode-extension.workflows && viewItem == fluigWorkflowEvent",
+					"group": "inline@2"
 				}
 			]
 		},

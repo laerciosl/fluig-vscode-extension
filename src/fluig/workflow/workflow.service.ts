@@ -468,9 +468,19 @@ async function saveMechanismFile(
         operation: 'import',
         name,
         serverName: server.name,
+        uri: fileUri,
         silent: !openFile,
     });
     if (openFile) {
         window.showTextDocument(fileUri);
     }
+}
+
+// ── Remote content for diff ────────────────────────────────────────────────
+
+export async function getMechanismContent(server: ServerDTO, mechanismId: string): Promise<string> {
+    const mechanisms = await getMechanisms(server);
+    const m = mechanisms.find(m => m.attributionMecanismPK.attributionMecanismId === mechanismId);
+    if (!m) { throw new Error(`Mecanismo não encontrado: ${mechanismId}`); }
+    return m.attributionMecanismDescription;
 }

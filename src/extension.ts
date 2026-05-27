@@ -12,6 +12,10 @@ import { registerGlobalEventCommands } from './core/commands/global-event.comman
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { SyncDecorationProvider } from './core/file-decoration';
+import { FluigRemoteContentProvider, REMOTE_SCHEME, registerContentFetcher } from './core/diff-provider';
+import { getDatasetContent } from './fluig/datasets/dataset.service';
+import { getGlobalEventContent } from './fluig/events/global-event.service';
+import { getMechanismContent } from './fluig/workflow/workflow.service';
 import { registerRuntimeCommands } from './core/commands/runtime.commands';
 import { RuntimeState, initRuntime } from './core/runtime-state';
 import { createLogger, initLogger, disposeLogger } from './core/logger';
@@ -24,6 +28,10 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
     const syncLog = createLogger('[SYNC]');
     setSdkLoggers(createLogger('[AUTH]'), createLogger('[HTTP]'));
+
+    registerContentFetcher('dataset', (name, server) => getDatasetContent(server, name));
+    registerContentFetcher('global-event', (name, server) => getGlobalEventContent(server, name));
+    registerContentFetcher('mechanism', (name, server) => getMechanismContent(server, name));
 
     if (!workspace.workspaceFolders) {
         window.showWarningMessage(
@@ -66,6 +74,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
         runtime,
 
         vscode.window.registerFileDecorationProvider(new SyncDecorationProvider()),
+        vscode.workspace.registerTextDocumentContentProvider(REMOTE_SCHEME, new FluigRemoteContentProvider()),
 
         // Sync-state listener (file decorations driven by markSynced/markError)
         runtime.onDidChangeSyncState(uri => {
