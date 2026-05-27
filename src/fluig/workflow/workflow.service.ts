@@ -6,11 +6,12 @@ import { ServerDTO } from '../../types/server.types';
 import { AttributionMechanismDTO } from './workflow.types';
 import { buildMechanismStructure, buildEventsPayload } from './workflow.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
-import { markSynced, markError } from '../../core/sync-state';
 import { getSelect } from '../../core/server.service';
 import { logInfo } from '../../core/output';
+import { emitSuccess, emitError } from '../../core/event-bus';
 import {
     loginAndGetCookies,
+    fetchWithAuth,
     getRestUrl,
     validateServerHasFluiggersWidget,
     apiGetLastWorkflowVersion,
@@ -18,6 +19,7 @@ import {
 } from '@fluiggers/sdk';
 
 const MECHANISM_BASE_PATH = '/ecm/api/rest/ecm/mechanism/';
+const JSON_HEADERS = { Accept: 'application/json', 'Content-Type': 'application/json' };
 
 // ── Workflow event export ──────────────────────────────────────────────────
 
@@ -96,20 +98,44 @@ export async function updateWorkflowEvents(eventUri: Uri): Promise<void> {
             buildEventsPayload(eventsToUpdate)
         );
 
-        const eventUris = eventsToUpdate.map(e => Uri.file(e.path));
         if (!response.hasError) {
-            eventUris.forEach(u => markSynced(u));
+            eventsToUpdate.forEach(e =>
+                emitSuccess({
+                    kind: 'workflow',
+                    operation: 'export',
+                    name: e.label,
+                    serverName: server.name,
+                    uri: Uri.file(e.path),
+                    silent: true,
+                })
+            );
             window.showInformationMessage('Todos os eventos foram atualizados');
         } else {
-            eventUris.forEach(u => markError(u));
+            eventsToUpdate.forEach(e =>
+                emitError({
+                    kind: 'workflow',
+                    operation: 'export',
+                    name: e.label,
+                    serverName: server.name,
+                    uri: Uri.file(e.path),
+                    error: response.errors.join('\n'),
+                    silent: true,
+                })
+            );
             window.showWarningMessage('Ocorreram erros ao atualizar os eventos', {
                 detail: response.errors.join('\n'),
                 modal: true,
             });
         }
     } catch (error: any) {
-        markError(eventUri);
-        window.showErrorMessage(error.message || error);
+        emitError({
+            kind: 'workflow',
+            operation: 'export',
+            name: processId,
+            serverName: server.name,
+            uri: eventUri,
+            error: error.message || String(error),
+        });
     }
 }
 
@@ -142,72 +168,44 @@ export async function getMechanisms(server: ServerDTO): Promise<AttributionMecha
 
 async function apiListMechanisms(server: ServerDTO): Promise<AttributionMechanismDTO[]> {
     const url = getRestUrl(server, MECHANISM_BASE_PATH, 'getCustomAttributionMechanismList');
+    const response: any = await fetchWithAuth(server, url, { headers: JSON_HEADERS }).then(r => r.json());
 
-    try {
-        const headers = buildJsonHeaders(await loginAndGetCookies(server));
-        const response: any = await fetch(url, { headers }).then(r => r.json());
-
-        if (response.message) {
-            window.showErrorMessage(response.message.message);
-            return [];
-        }
-
-        return response;
-    } catch (error: any) {
-        window.showErrorMessage(error.message || error);
-        return [];
+    if (response.message) {
+        throw new Error(response.message.message);
     }
+
+    return response;
 }
 
 async function apiCreateMechanism(
     server: ServerDTO,
     mechanism: AttributionMechanismDTO
 ): Promise<any> {
-    try {
-        return await fetch(
-            getRestUrl(server, MECHANISM_BASE_PATH, 'createAttributionMechanism'),
-            {
-                headers: buildJsonHeaders(await loginAndGetCookies(server)),
-                method: 'POST',
-                body: JSON.stringify(mechanism),
-            }
-        ).then(r => r.json());
-    } catch (error) {
-        return { message: { message: `Erro: ${error}` } };
-    }
+    return fetchWithAuth(
+        server,
+        getRestUrl(server, MECHANISM_BASE_PATH, 'createAttributionMechanism'),
+        { headers: JSON_HEADERS, method: 'POST', body: JSON.stringify(mechanism) }
+    ).then(r => r.json());
 }
 
 async function apiUpdateMechanism(
     server: ServerDTO,
     mechanism: AttributionMechanismDTO
 ): Promise<any> {
-    try {
-        return await fetch(
-            getRestUrl(server, MECHANISM_BASE_PATH, 'updateAttributionMechanism'),
-            {
-                headers: buildJsonHeaders(await loginAndGetCookies(server)),
-                method: 'POST',
-                body: JSON.stringify(mechanism),
-            }
-        ).then(r => r.json());
-    } catch (error) {
-        return { message: { message: `Erro: ${error}` } };
-    }
+    return fetchWithAuth(
+        server,
+        getRestUrl(server, MECHANISM_BASE_PATH, 'updateAttributionMechanism'),
+        { headers: JSON_HEADERS, method: 'POST', body: JSON.stringify(mechanism) }
+    ).then(r => r.json());
 }
 
 async function apiDeleteMechanism(server: ServerDTO, mechanismId: string): Promise<any> {
     const url = getRestUrl(server, MECHANISM_BASE_PATH, 'deleteAttributionMechanism', {
         mechanismId,
     });
-
-    try {
-        return await fetch(url, {
-            headers: buildJsonHeaders(await loginAndGetCookies(server)),
-            method: 'DELETE',
-        }).then(r => r.json());
-    } catch (error) {
-        return { message: { message: `Erro: ${error}` } };
-    }
+    return fetchWithAuth(server, url, { headers: JSON_HEADERS, method: 'DELETE' }).then(r =>
+        r.json()
+    );
 }
 
 export async function importMechanism(): Promise<void> {
@@ -222,6 +220,7 @@ export async function importMechanism(): Promise<void> {
     }
 
     await saveMechanismFile(
+        server,
         mechanism.attributionMecanismPK.attributionMecanismId,
         mechanism.attributionMecanismDescription
     );
@@ -248,6 +247,7 @@ export async function importManyMechanisms(): Promise<void> {
             return Promise.all(
                 mechanisms.map(async m => {
                     await saveMechanismFile(
+                        server,
                         m.attributionMecanismPK.attributionMecanismId,
                         m.attributionMecanismDescription,
                         false
@@ -269,7 +269,21 @@ export async function exportMechanism(fileUri: Uri): Promise<void> {
         return;
     }
 
-    const mechanisms = await apiListMechanisms(server);
+    let mechanisms: AttributionMechanismDTO[];
+    try {
+        mechanisms = await apiListMechanisms(server);
+    } catch (error: any) {
+        emitError({
+            kind: 'mechanism',
+            operation: 'export',
+            name: basename(fileUri.fsPath, '.js'),
+            serverName: server.name,
+            uri: fileUri,
+            error: error.message || String(error),
+        });
+        return;
+    }
+
     const items: { label: string; detail: string }[] = [];
     let mechanismSelected = { label: '', detail: '' };
     let mechanismId = basename(fileUri.fsPath, '.js');
@@ -361,20 +375,38 @@ export async function exportMechanism(fileUri: Uri): Promise<void> {
     mechanismStructure.description = description;
     mechanismStructure.attributionMecanismDescription = readFileSync(fileUri.fsPath, 'utf8');
 
-    const result: any = isNew
-        ? await apiCreateMechanism(server, mechanismStructure)
-        : await apiUpdateMechanism(server, mechanismStructure);
+    try {
+        const result: any = isNew
+            ? await apiCreateMechanism(server, mechanismStructure)
+            : await apiUpdateMechanism(server, mechanismStructure);
 
-    if (result?.content === 'OK') {
-        markSynced(fileUri);
-        window.showInformationMessage(
-            `Mecanismo Customizado ${mechanismId} exportado com sucesso!`
-        );
-    } else {
-        markError(fileUri);
-        window.showErrorMessage(
-            `Falha ao exportar o Mecanismo Customizado ${mechanismId}!\n${result?.message?.message}`
-        );
+        if (result?.content === 'OK') {
+            emitSuccess({
+                kind: 'mechanism',
+                operation: 'export',
+                name: mechanismId,
+                serverName: server.name,
+                uri: fileUri,
+            });
+        } else {
+            emitError({
+                kind: 'mechanism',
+                operation: 'export',
+                name: mechanismId,
+                serverName: server.name,
+                uri: fileUri,
+                error: result?.message?.message || 'Erro ao exportar mecanismo.',
+            });
+        }
+    } catch (error: any) {
+        emitError({
+            kind: 'mechanism',
+            operation: 'export',
+            name: mechanismId,
+            serverName: server.name,
+            uri: fileUri,
+            error: error.message || String(error),
+        });
     }
 }
 
@@ -421,6 +453,7 @@ async function pickManyMechanisms(
 }
 
 async function saveMechanismFile(
+    server: ServerDTO,
     name: string,
     content: string,
     openFile = true
@@ -428,16 +461,14 @@ async function saveMechanismFile(
     const fileUri = Uri.joinPath(getWorkspaceUri(), 'mechanisms', `${name}.js`);
     await workspace.fs.writeFile(fileUri, Buffer.from(content, 'utf-8'));
 
+    emitSuccess({
+        kind: 'mechanism',
+        operation: 'import',
+        name,
+        serverName: server.name,
+        silent: !openFile,
+    });
     if (openFile) {
         window.showTextDocument(fileUri);
-        window.showInformationMessage(`Mecanismo de Atribuição ${name} importado com sucesso!`);
     }
-}
-
-function buildJsonHeaders(cookies: string): Headers {
-    return new Headers({
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Cookie: cookies,
-    });
 }

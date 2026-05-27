@@ -5,51 +5,40 @@ import { ServerDTO } from '../../types/server.types';
 import { GlobalEventDTO } from './global-event.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { markSynced, markError } from '../../core/sync-state';
-import { logInfo, logSuccess } from '../../core/output';
-import { loginAndGetCookies, getRestUrl } from '@fluiggers/sdk';
+import { logInfo } from '../../core/output';
+import { emitSuccess, emitError } from '../../core/event-bus';
+import { fetchWithAuth, getRestUrl } from '@fluiggers/sdk';
 
 const BASE_PATH = '/ecm/api/rest/ecm/globalevent/';
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
 async function apiGetEventList(server: ServerDTO): Promise<GlobalEventDTO[]> {
-    try {
-        const headers = buildHeaders(await loginAndGetCookies(server));
-        const response: any = await fetch(
-            getRestUrl(server, BASE_PATH, 'getEventList'),
-            { headers }
-        ).then(r => r.json());
+    const response: any = await fetchWithAuth(
+        server,
+        getRestUrl(server, BASE_PATH, 'getEventList'),
+        { headers: { Accept: 'application/json', 'Content-Type': 'application/json' } }
+    ).then(r => r.json());
 
-        if (response.message) {
-            window.showErrorMessage(response.message.message);
-            return [];
-        }
-
-        return response;
-    } catch (error: any) {
-        window.showErrorMessage(error.message || error);
-        return [];
+    if (response.message) {
+        throw new Error(response.message.message);
     }
+
+    return response;
 }
 
 async function apiSaveEventList(
     server: ServerDTO,
     globalEvents: GlobalEventDTO[]
 ): Promise<any> {
-    try {
-        return await fetch(getRestUrl(server, BASE_PATH, 'saveEventList'), {
-            method: 'post',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Cookie: await loginAndGetCookies(server),
-            },
-            body: JSON.stringify(globalEvents),
-        }).then(r => r.json());
-    } catch (error: any) {
-        window.showErrorMessage(error.message || error);
-    }
+    return fetchWithAuth(server, getRestUrl(server, BASE_PATH, 'saveEventList'), {
+        method: 'post',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify(globalEvents),
+    }).then(r => r.json());
 }
 
 async function apiDeleteGlobalEvent(
@@ -59,9 +48,9 @@ async function apiDeleteGlobalEvent(
     const url = getRestUrl(server, BASE_PATH, 'deleteGlobalEvent');
     url.searchParams.set('eventName', eventName);
 
-    return fetch(url, {
+    return fetchWithAuth(server, url, {
         method: 'DELETE',
-        headers: buildHeaders(await loginAndGetCookies(server)),
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     }).then(r => r.json());
 }
 
@@ -79,7 +68,7 @@ export async function importOne(): Promise<void> {
     }
 
     logInfo(`Importando evento global: ${event.globalEventPK.eventId} ← ${server.name}`);
-    await saveFile(event.globalEventPK.eventId, event.eventDescription);
+    await saveFile(server, event.globalEventPK.eventId, event.eventDescription);
 }
 
 export async function importMany(): Promise<void> {
@@ -103,8 +92,7 @@ export async function importMany(): Promise<void> {
 
             return Promise.all(
                 eventList.map(async event => {
-                    await saveFile(event.globalEventPK.eventId, event.eventDescription, false);
-                    logSuccess(`Evento global importado: ${event.globalEventPK.eventId}`);
+                    await saveFile(server, event.globalEventPK.eventId, event.eventDescription, false);
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -130,7 +118,21 @@ export async function exportOne(fileUri: Uri): Promise<void> {
 
     const globalEventId = basename(fileUri.fsPath, '.js');
     logInfo(`Exportando evento global: ${globalEventId} → ${server.name}`);
-    const globalEvents = await apiGetEventList(server);
+
+    let globalEvents: GlobalEventDTO[];
+    try {
+        globalEvents = await apiGetEventList(server);
+    } catch (error: any) {
+        emitError({
+            kind: 'global-event',
+            operation: 'export',
+            name: globalEventId,
+            serverName: server.name,
+            uri: fileUri,
+            error: error.message || String(error),
+        });
+        return;
+    }
 
     const structure: GlobalEventDTO = {
         globalEventPK: { companyId: server.companyId, eventId: globalEventId },
@@ -144,16 +146,36 @@ export async function exportOne(fileUri: Uri): Promise<void> {
         globalEvents[index] = structure;
     }
 
-    const result: any = await apiSaveEventList(server, globalEvents);
+    try {
+        const result: any = await apiSaveEventList(server, globalEvents);
 
-    if (result?.content === 'OK') {
-        markSynced(fileUri);
-        window.showInformationMessage(`Evento Global ${globalEventId} exportado com sucesso!`);
-    } else {
-        markError(fileUri);
-        window.showErrorMessage(
-            `Falha ao exportar o Evento Global ${globalEventId}!\n${result?.message?.message}`
-        );
+        if (result?.content === 'OK') {
+            emitSuccess({
+                kind: 'global-event',
+                operation: 'export',
+                name: globalEventId,
+                serverName: server.name,
+                uri: fileUri,
+            });
+        } else {
+            emitError({
+                kind: 'global-event',
+                operation: 'export',
+                name: globalEventId,
+                serverName: server.name,
+                uri: fileUri,
+                error: result?.message?.message || 'Erro ao exportar evento global.',
+            });
+        }
+    } catch (error: any) {
+        emitError({
+            kind: 'global-event',
+            operation: 'export',
+            name: globalEventId,
+            serverName: server.name,
+            uri: fileUri,
+            error: error.message || String(error),
+        });
     }
 }
 
@@ -191,14 +213,19 @@ export async function deleteEvents(): Promise<void> {
 
 // ── File helpers ───────────────────────────────────────────────────────────
 
-export async function saveFile(name: string, content: string, openFile = true): Promise<void> {
+async function saveFile(server: ServerDTO, name: string, content: string, openFile = true): Promise<void> {
     const uri = Uri.joinPath(getWorkspaceUri(), 'events', `${name}.js`);
     await workspace.fs.writeFile(uri, Buffer.from(content, 'utf-8'));
 
+    emitSuccess({
+        kind: 'global-event',
+        operation: 'import',
+        name,
+        serverName: server.name,
+        silent: !openFile,
+    });
     if (openFile) {
-        logSuccess(`Evento global importado: ${name}`);
         window.showTextDocument(uri);
-        window.showInformationMessage(`Evento global ${name} importado com sucesso!`);
     }
 }
 
@@ -228,14 +255,4 @@ async function pickManyEvents(
     }
     const selected = result.map(r => r.label);
     return eventList.filter(e => selected.includes(e.globalEventPK.eventId));
-}
-
-// ── Internal ───────────────────────────────────────────────────────────────
-
-function buildHeaders(cookies: string): Headers {
-    return new Headers({
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Cookie: cookies,
-    });
 }

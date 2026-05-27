@@ -76,13 +76,17 @@ export async function activate(context: ExtensionContext): Promise<void> {
             const verb = e.operation === 'export' ? 'Exportado' : 'Importado';
             logSuccess(`${verb}: ${e.name} → ${e.serverName}`);
             if (e.uri) { markSynced(e.uri); }
-            window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
+            if (!e.silent) {
+                window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
+            }
         }),
         onArtifactError(e => {
             const verb = e.operation === 'export' ? 'exportar' : 'importar';
             logError(`Falha ao ${verb}: ${e.name} — ${e.error}`);
             if (e.uri) { markError(e.uri); }
-            window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
+            if (!e.silent) {
+                window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
+            }
         }),
 
         { dispose: disposeOutput },

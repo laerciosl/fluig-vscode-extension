@@ -16,6 +16,8 @@ export interface ArtifactEvent {
     name: string;
     serverName: string;
     uri?: Uri;
+    /** Suppresses the toast notification — use in batch loops so only a summary is shown. */
+    silent?: boolean;
 }
 
 export interface ArtifactErrorEvent extends ArtifactEvent {

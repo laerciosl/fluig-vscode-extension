@@ -8,10 +8,9 @@ import { WidgetFluiggersDTO } from './widget.types';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
 import { Server } from '../../core/server.model';
-import { markSynced, markError } from '../../core/sync-state';
-import { logInfo, logSuccess } from '../../core/output';
-import { emitSuccess } from '../../core/event-bus';
-import { loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
+import { logInfo } from '../../core/output';
+import { emitSuccess, emitError } from '../../core/event-bus';
+import { fetchWithAuth, loginAndGetCookies, getHost, validateServerHasFluiggersWidget } from '@fluiggers/sdk';
 
 // ── Export ─────────────────────────────────────────────────────────────────
 
@@ -26,6 +25,7 @@ export async function exportWidget(fileUri: Uri): Promise<void> {
     }
 
     const widgetName = fileUri.path.replace(/.*\/widget\/([^/]+).*/, '$1');
+    logInfo(`Exportando widget: ${widgetName} → ${server.name}`);
     const widgetUri = Uri.joinPath(getWorkspaceUri(), 'wcm', 'widget', widgetName);
     const zipStream = new JSZip();
     zipStream.folder('WEB-INF');
@@ -49,30 +49,36 @@ export async function exportWidget(fileUri: Uri): Promise<void> {
         'resources'
     );
 
-    zipStream
-        .generateAsync({ type: 'uint8array', compression: 'STORE', mimeType: 'application/java-archive' })
-        .then(async content => {
-            try {
-                const response: any = await uploadWarFile(server, `${widgetName}.war`, content);
-
-                if (response.message) {
-                    markError(fileUri);
-                    window.showErrorMessage(response.message.message);
-                } else {
-                    markSynced(fileUri);
-                    window.showInformationMessage(
-                        'Widget enviada com sucesso. Você será notificado assim que a instalação/atualização for concluída.'
-                    );
-                }
-            } catch (error: any) {
-                markError(fileUri);
-                window.showErrorMessage(error.message || error);
-            }
-        })
-        .catch(error => {
-            markError(fileUri);
-            window.showErrorMessage(error.message || error);
+    try {
+        const content = await zipStream.generateAsync({
+            type: 'uint8array',
+            compression: 'STORE',
+            mimeType: 'application/java-archive',
         });
+        const response: any = await uploadWarFile(server, `${widgetName}.war`, content);
+
+        if (response.message) {
+            emitError({
+                kind: 'widget',
+                operation: 'export',
+                name: widgetName,
+                serverName: server.name,
+                uri: fileUri,
+                error: response.message.message,
+            });
+        } else {
+            emitSuccess({ kind: 'widget', operation: 'export', name: widgetName, serverName: server.name, uri: fileUri });
+        }
+    } catch (error: any) {
+        emitError({
+            kind: 'widget',
+            operation: 'export',
+            name: widgetName,
+            serverName: server.name,
+            uri: fileUri,
+            error: error.message || String(error),
+        });
+    }
 }
 
 export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void> {
@@ -102,15 +108,24 @@ export async function exportFluiggersWidget(serverDto?: ServerDTO): Promise<void
         );
 
         if (response.message) {
-            window.showErrorMessage(response.message.message);
+            emitError({
+                kind: 'widget',
+                operation: 'export',
+                name: 'fluiggersWidget',
+                serverName: server.name,
+                error: response.message.message,
+            });
         } else {
-            logSuccess(`FluiggersWidget enviada para: ${server.name}`);
-            window.showInformationMessage(
-                'Widget enviada com sucesso. Você será notificado assim que a instalação/atualização for concluída.'
-            );
+            emitSuccess({ kind: 'widget', operation: 'export', name: 'fluiggersWidget', serverName: server.name });
         }
     } catch (error: any) {
-        window.showErrorMessage(error.message || error);
+        emitError({
+            kind: 'widget',
+            operation: 'export',
+            name: 'fluiggersWidget',
+            serverName: server.name,
+            error: error.message || String(error),
+        });
     }
 }
 
@@ -142,7 +157,6 @@ export async function importWidgetFromTree(server: ServerDTO, widget: WidgetFlui
         }
     });
 
-    logSuccess(`Widget importada: ${widget.code}`);
     emitSuccess({ kind: 'widget', operation: 'import', name: widget.code, serverName: server.name });
 }
 
@@ -210,22 +224,25 @@ export async function importWidget(): Promise<void> {
                                     window.showWarningMessage(err);
                                 }
                             });
-                        } catch (error: any) {
-                            window.showErrorMessage(error.message || error);
-                        }
 
-                        logSuccess(`Widget importada: ${widget.code}`);
-                        current += increment;
-                        progress.report({ increment: current });
-                        return true;
+                            emitSuccess({ kind: 'widget', operation: 'import', name: widget.code, serverName: server.name, silent: true });
+                            return true;
+                        } catch (error: any) {
+                            emitError({ kind: 'widget', operation: 'import', name: widget.code, serverName: server.name, error: error.message || String(error), silent: true });
+                            return false;
+                        } finally {
+                            current += increment;
+                            progress.report({ increment: current });
+                        }
                     })
                 );
             }
         );
 
+        const successCount = results.filter(Boolean).length;
         window.showInformationMessage(
-            results.length > 1
-                ? `${results.length} widgets foram importadas.`
+            successCount > 1
+                ? `${successCount} widgets foram importadas.`
                 : '1 widget foi importada.'
         );
     } catch (error: any) {
@@ -244,9 +261,9 @@ export async function getWidgets(server: ServerDTO): Promise<WidgetFluiggersDTO[
         return [];
     }
 
-    return fetch(`${getHost(server)}/fluiggersWidget/api/widgets`, {
+    return fetchWithAuth(server, `${getHost(server)}/fluiggersWidget/api/widgets`, {
         method: 'GET',
-        headers: { Accept: 'application/json', Cookie: cookies },
+        headers: { Accept: 'application/json' },
     }).then(r => r.json() as Promise<WidgetFluiggersDTO[]>);
 }
 
@@ -254,12 +271,10 @@ export async function downloadWidgetFile(
     server: ServerDTO,
     widgetFileName: string
 ): Promise<ArrayBuffer> {
-    return fetch(
+    return fetchWithAuth(
+        server,
         `${getHost(server)}/fluiggersWidget/api/widgets/${widgetFileName}`,
-        {
-            method: 'GET',
-            headers: { Cookie: await loginAndGetCookies(server) },
-        }
+        { method: 'GET' }
     ).then(async r => {
         if (r.status !== 200) {
             throw `${widgetFileName}: ${await r.text()}`;
@@ -304,12 +319,9 @@ async function uploadWarFile(
         fileName
     );
 
-    return fetch(url, {
+    return fetchWithAuth(server, url, {
         method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            Cookie: await loginAndGetCookies(server),
-        },
+        headers: { Accept: 'application/json' },
         body: formData,
     }).then(r => {
         if (!r.ok) {

@@ -7,9 +7,8 @@ import { DocumentDTO, FormDTO, AttachmentDTO, CustomizationEventsDTO } from './f
 import { buildCreateFormParams, buildUpdateFormParams } from './form.mapper';
 import { getWorkspaceUri, confirmPassword } from '../../core/workspace.utils';
 import { getSelect } from '../../core/server.service';
-import { markSynced, markError } from '../../core/sync-state';
-import { logInfo, logSuccess } from '../../core/output';
-import { emitSuccess } from '../../core/event-bus';
+import { logInfo } from '../../core/output';
+import { emitSuccess, emitError } from '../../core/event-bus';
 import { createAuthenticatedClientAsync, getHost } from '@fluiggers/sdk';
 
 function getServiceUri(server: ServerDTO): string {
@@ -107,8 +106,7 @@ export async function importOne(): Promise<void> {
 
     logInfo(`Importando formulário: ${form.documentDescription} ← ${server.name}`);
     await writeFormFiles(server, form, getWorkspaceUri());
-    logSuccess(`Formulário importado: ${form.documentDescription}`);
-    window.showInformationMessage('O formulário foi importado!');
+    emitSuccess({ kind: 'form', operation: 'import', name: form.documentDescription, serverName: server.name });
 }
 
 export async function importMany(): Promise<void> {
@@ -138,7 +136,7 @@ export async function importMany(): Promise<void> {
                         return;
                     }
                     await writeFormFiles(server, form, workspaceUri);
-                    logSuccess(`Formulário importado: ${form.documentDescription}`);
+                    emitSuccess({ kind: 'form', operation: 'import', name: form.documentDescription, serverName: server.name, silent: true });
                     current += increment;
                     progress.report({ increment: current });
                     return true;
@@ -147,7 +145,7 @@ export async function importMany(): Promise<void> {
         }
     );
 
-    window.showInformationMessage(`${results.length} formulários foram importados.`);
+    window.showInformationMessage(`${results.filter(Boolean).length} formulário(s) importado(s).`);
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────
@@ -164,6 +162,7 @@ export async function exportOne(context: ExtensionContext, fileUri: Uri): Promis
 
     const formFolderName = fileUri.path.replace(/.*\/forms\/([^/]+).*/, '$1');
     const formName = formFolderName.replace(/^(?:\d+ - )?(\w+)$/, '$1');
+    logInfo(`Exportando formulário: ${formName} → ${server.name}`);
 
     const selectedForm = await pickExportTarget(server, formName);
     if (!selectedForm) {
@@ -213,17 +212,19 @@ export async function exportOne(context: ExtensionContext, fileUri: Uri): Promis
 
         const message = response[0]?.result?.item?.webServiceMessage;
         if (message === 'ok') {
-            markSynced(fileUri);
-            window.showInformationMessage(`Formulário ${formName} exportado com sucesso!`);
+            emitSuccess({ kind: 'form', operation: 'export', name: formName, serverName: server.name, uri: fileUri });
         } else {
-            markError(fileUri);
-            window.showErrorMessage(
-                message || 'Verifique o id da Pasta onde irá salvar o Formulário!'
-            );
+            emitError({
+                kind: 'form',
+                operation: 'export',
+                name: formName,
+                serverName: server.name,
+                uri: fileUri,
+                error: message || 'Verifique o id da Pasta onde irá salvar o Formulário!',
+            });
         }
-    } catch {
-        markError(fileUri);
-        window.showErrorMessage('Erro ao exportar Formulário.');
+    } catch (e: any) {
+        emitError({ kind: 'form', operation: 'export', name: formName, serverName: server.name, uri: fileUri, error: e?.message || 'Erro ao exportar Formulário.' });
     }
 }
 
