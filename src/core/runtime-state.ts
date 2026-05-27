@@ -70,11 +70,19 @@ export class RuntimeState implements Disposable {
 
     readonly deployQueue = new DeployQueue();
 
+    private readonly _onDeploySize = new EventEmitter<number>();
+    readonly onDidChangeDeploySize: Event<number> = this._onDeploySize.event;
+
+    constructor() {
+        this.deployQueue.onQueueChange = (size) => this._onDeploySize.fire(size);
+    }
+
     // ── Dispose ───────────────────────────────────────────────────────────────
 
     dispose(): void {
         this._onSelectServer.dispose();
         this._onSyncChange.dispose();
+        this._onDeploySize.dispose();
         this.deployQueue.cancelAll();
     }
 

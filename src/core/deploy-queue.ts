@@ -25,6 +25,8 @@ export class DeployQueue {
     private readonly _inFlight = new Map<string, Entry>();
     private _draining = false;
 
+    onQueueChange?: (size: number) => void;
+
     // ── Public ────────────────────────────────────────────────────────────────
 
     get size(): number {
@@ -33,6 +35,10 @@ export class DeployQueue {
 
     get isRunning(): boolean {
         return this._draining || this._inFlight.size > 0;
+    }
+
+    private notifyChange(): void {
+        this.onQueueChange?.(this.size);
     }
 
     enqueue(key: string, fn: DeployFn, options?: EnqueueOptions): void {
@@ -68,6 +74,7 @@ export class DeployQueue {
         // ── New entry ─────────────────────────────────────────────────────────
         const entry: Entry = { key, fn, opts, timer: null, cancelled: false };
         this._debouncing.set(key, entry);
+        this.notifyChange();
 
         if (opts.debounceMs > 0) {
             entry.timer = setTimeout(() => this.promote(key), opts.debounceMs);
@@ -81,12 +88,14 @@ export class DeployQueue {
         if (debouncing) {
             if (debouncing.timer) { clearTimeout(debouncing.timer); }
             this._debouncing.delete(key);
+            this.notifyChange();
             return;
         }
 
         const readyIdx = this._ready.findIndex(e => e.key === key);
         if (readyIdx !== -1) {
             this._ready.splice(readyIdx, 1);
+            this.notifyChange();
             return;
         }
 
@@ -106,6 +115,7 @@ export class DeployQueue {
         for (const entry of this._inFlight.values()) {
             entry.cancelled = true;
         }
+        this.notifyChange();
     }
 
     // ── Private ───────────────────────────────────────────────────────────────
@@ -122,10 +132,11 @@ export class DeployQueue {
         this._draining = true;
         while (this._ready.length) {
             const entry = this._ready.shift()!;
-            if (entry.cancelled) { continue; }
+            if (entry.cancelled) { this.notifyChange(); continue; }
             this._inFlight.set(entry.key, entry);
             await this.runWithRetry(entry);
             this._inFlight.delete(entry.key);
+            this.notifyChange();
         }
         this._draining = false;
     }

@@ -12,12 +12,13 @@
 4. [Eventos Globais](#4-eventos-globais)
 5. [Workflow — Processos e Mecanismos](#5-workflow--processos-e-mecanismos)
 6. [Widgets](#6-widgets)
-7. [Auto Export ao Salvar](#7-auto-export-ao-salvar)
-8. [Explorer Inteligente — Status e Diff](#8-explorer-inteligente--status-e-diff)
-9. [Runtime Local de Dataset](#9-runtime-local-de-dataset)
-10. [Snippets](#10-snippets)
-11. [Biblioteca de Tipos](#11-biblioteca-de-tipos)
-12. [Configurações](#12-configurações)
+7. [Status Bar](#7-status-bar)
+8. [Auto Export ao Salvar](#8-auto-export-ao-salvar)
+9. [Explorer Inteligente — Status e Diff](#9-explorer-inteligente--status-e-diff)
+10. [Runtime Local de Dataset](#10-runtime-local-de-dataset)
+11. [Snippets](#11-snippets)
+12. [Biblioteca de Tipos](#12-biblioteca-de-tipos)
+13. [Configurações](#13-configurações)
 
 ---
 
@@ -200,7 +201,21 @@ Painel lateral dedicado (aba **Widgets**) lista os widgets do servidor conectado
 
 ---
 
-## 7. Auto Export ao Salvar
+## 7. Status Bar
+
+A barra de status inferior do VS Code exibe três indicadores Fluig em tempo real, sempre visíveis enquanto a extensão está ativa.
+
+| Item | Exemplo | Comportamento |
+|---|---|---|
+| **Servidor** | `$(circle-filled) DEV` / `$(circle-outline) Fluig` | Nome do servidor conectado (ou "Fluig" quando desconectado). Clique para abrir o QuickPick de seleção de servidor. |
+| **Watch** | `$(cloud-upload) Watch` / `$(circle-outline) Watch` | Estado do Auto Export. Fundo amarelo quando ativado. Clique para alternar. |
+| **Deploys** | `$(loading~spin) 2` | Número de deploys em andamento. Aparece automaticamente quando há itens na fila e some quando a fila esvazia. |
+
+O item de servidor atualiza automaticamente ao conectar ou desconectar; o contador de deploys atualiza em tempo real conforme a fila de export processa os arquivos.
+
+---
+
+## 8. Auto Export ao Salvar
 
 Exporta automaticamente o artefato Fluig correspondente sempre que um arquivo for salvo.
 
@@ -226,7 +241,7 @@ Exporta automaticamente o artefato Fluig correspondente sempre que um arquivo fo
 
 ---
 
-## 8. Explorer Inteligente — Status e Diff
+## 9. Explorer Inteligente — Status e Diff
 
 ### Status de Sincronização
 
@@ -261,7 +276,7 @@ Requer um servidor conectado. O conteúdo remoto é buscado em tempo real via AP
 
 ---
 
-## 9. Runtime Local de Dataset
+## 10. Runtime Local de Dataset
 
 Executa o código de um dataset localmente (sem servidor) em uma sandbox isolada, ideal para testar a lógica de `createDataset` antes de exportar.
 
@@ -275,7 +290,7 @@ Executa o código de um dataset localmente (sem servidor) em uma sandbox isolada
 
 ---
 
-## 10. Snippets
+## 11. Snippets
 
 Snippets disponíveis para acelerar a escrita de código Fluig.
 
@@ -326,7 +341,7 @@ Snippets disponíveis para acelerar a escrita de código Fluig.
 
 ---
 
-## 11. Biblioteca de Tipos
+## 12. Biblioteca de Tipos
 
 A extensão cria arquivos utilizando os tipos declarados na **Declaração de Tipos para o Fluig**, que habilita autocomplete e verificação de tipos no VS Code ao escrever datasets, eventos e workflows. Por isso, é recomendado que ela seja instalada no workspace.
 
@@ -342,7 +357,7 @@ Ao usar o comando ou o menu de contexto do servidor, a extensão baixa automatic
 
 ---
 
-## 12. Configurações
+## 13. Configurações
 
 Configurações disponíveis em `Arquivo > Preferências > Configurações > Extensões > Fluiggers`.
 

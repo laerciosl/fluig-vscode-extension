@@ -11,6 +11,7 @@ import { registerWorkflowCommands } from './core/commands/workflow.commands';
 import { registerGlobalEventCommands } from './core/commands/global-event.commands';
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
+import { registerStatusBar } from './core/status-bar';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { FluigRemoteContentProvider, REMOTE_SCHEME, registerContentFetcher } from './core/diff-provider';
 import { getDatasetContent } from './fluig/datasets/dataset.service';
@@ -117,6 +118,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     registerGlobalEventCommands(context);
     await registerServerCommands(context);
     registerWatchMode(context);
+    registerStatusBar(context);
     registerRuntimeCommands(context);
 }
 

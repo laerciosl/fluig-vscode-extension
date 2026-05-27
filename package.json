@@ -328,6 +328,10 @@
 				"title": "Comparar com Fluig",
 				"category": "Fluig",
 				"icon": "$(diff)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.selectServer",
+				"title": "Fluig: Selecionar Servidor"
 			}
 		],
 		"menus": {

@@ -12,7 +12,7 @@ const watchLog = createLogger('[WATCH]');
 const deployLog = createLogger('[DEPLOY]');
 
 const CONFIG_KEY = 'autoExportOnSave';
-const DEBOUNCE_MS = 500;
+export const DEBOUNCE_MS = 500;
 const MAX_RETRIES = 2;
 
 export type ExportType = 'dataset' | 'form' | 'globalEvent' | 'workflow' | 'mechanism' | 'widget';
@@ -29,18 +29,6 @@ export function resolveExportType(filePath: string): ExportType | null {
 
 function isEnabled(): boolean {
     return vscode.workspace.getConfiguration('fluiggers').get<boolean>(CONFIG_KEY, false);
-}
-
-function updateStatusBar(item: vscode.StatusBarItem): void {
-    if (isEnabled()) {
-        item.text = '$(cloud-upload) Fluig';
-        item.tooltip = 'Auto Export: ON — clique para desativar';
-        item.backgroundColor = undefined;
-    } else {
-        item.text = '$(circle-outline) Fluig';
-        item.tooltip = 'Auto Export: OFF — clique para ativar';
-        item.backgroundColor = undefined;
-    }
 }
 
 async function resolveExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): Promise<void> {
@@ -75,26 +63,14 @@ function scheduleExport(fileUri: vscode.Uri, context: vscode.ExtensionContext): 
 }
 
 export function registerWatchMode(context: vscode.ExtensionContext): void {
-    const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBar.command = 'fluiggers-fluig-vscode-extension.toggleAutoExport';
-    updateStatusBar(statusBar);
-    statusBar.show();
-
     context.subscriptions.push(
-        statusBar,
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.toggleAutoExport',
             async () => {
                 const config = vscode.workspace.getConfiguration('fluiggers');
                 await config.update(CONFIG_KEY, !isEnabled(), vscode.ConfigurationTarget.Workspace);
-                updateStatusBar(statusBar);
             }
         ),
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('fluiggers.autoExportOnSave')) {
-                updateStatusBar(statusBar);
-            }
-        }),
         vscode.workspace.onDidSaveTextDocument(document => {
             getRuntime().checkModified(document.uri);
             if (!isEnabled()) {
