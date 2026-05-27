@@ -126,6 +126,10 @@ npm run test:integration
 
 If any test fails, investigate the root cause and fix it — do not skip or comment out failing tests.
 
+## Documentation
+
+Whenever a new feature is added to the extension — new command, new context menu item, new behavior, new configuration option, new snippet, or new UI element — update `FEATURES.md` to document it. Keep the relevant section current: add rows to tables, update descriptions, and reflect any changes to how existing features work.
+
 ## Key conventions
 
 - **Module-level functions, not static classes**: service files export plain functions. Do not create static-only classes for services.

@@ -665,6 +665,11 @@
 					"command": "fluiggers-fluig-vscode-extension.diffWorkflowEvent",
 					"when": "view == fluiggers-fluig-vscode-extension.workflows && viewItem == fluigWorkflowEvent",
 					"group": "inline@2"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.installDeclarationLibrary",
+					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
+					"group": "3_library@1"
 				}
 			]
 		},

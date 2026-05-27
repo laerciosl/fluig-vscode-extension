@@ -328,9 +328,17 @@ Snippets disponíveis para acelerar a escrita de código Fluig.
 
 ## 11. Biblioteca de Tipos
 
-Instala as declarações TypeScript para o ambiente Fluig, habilitando autocomplete e verificação de tipos ao escrever datasets e eventos.
+A extensão cria arquivos utilizando os tipos declarados na **Declaração de Tipos para o Fluig**, que habilita autocomplete e verificação de tipos no VS Code ao escrever datasets, eventos e workflows. Por isso, é recomendado que ela seja instalada no workspace.
 
-**Como acionar:** Paleta de Comandos → **Instalar Declarações de Tipo**
+**Como instalar:**
+
+| Ação | Como acionar |
+|---|---|
+| Instalar via comando | Paleta de Comandos (`F1`) → **Fluig: Instalar Declarações de Tipo** |
+| Instalar pelo painel de servidores | Clique direito no servidor → **Instalar Declarações de Tipo** |
+| Instalar manualmente | Baixar o último release no GitHub e copiar os arquivos para o workspace |
+
+Ao usar o comando ou o menu de contexto do servidor, a extensão baixa automaticamente os arquivos de declaração para o workspace/diretório atual.
 
 ---
 
