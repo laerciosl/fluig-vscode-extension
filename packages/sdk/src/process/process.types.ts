@@ -1,11 +1,9 @@
 /**
- * Tipos do modelo de processo Fluig (.process).
+ * Tipos públicos do modelo de processo Fluig.
  *
- * O arquivo `.process` é XMI (Eclipse EMF), não BPMN 2.0 standard. Tem duas partes:
- *   1. `pi:Diagram` — pictogramas / coordenadas (Eclipse Graphiti)
- *   2. `bpmn2:*`    — modelo de negócio (Fluig BpmnProcess, BpmnTask, etc.)
- *
- * Este módulo modela apenas o que é relevante para tooling no VS Code.
+ * Espelham os tipos internos da extensão VS Code e são expostos pelo SDK
+ * para que ferramentas de CI/CD e scripts externos possam trabalhar com
+ * `ProcessDefinition` de forma tipada.
  */
 
 export type ActivityKind =
@@ -20,13 +18,15 @@ export type ActivityKind =
     | 'intermediate-link-receive'
     | 'intermediate-error';
 
-/** Coordenadas extraídas do pictograma (quando disponíveis). */
 export interface Coordinates {
     x: number;
     y: number;
     width: number;
     height: number;
 }
+
+/** @deprecated Use `Coordinates` */
+export type ProcessCoordinates = Coordinates;
 
 export interface ProcessMetadata {
     id: string;
@@ -40,21 +40,13 @@ export interface ProcessMetadata {
     volume?: string;
     expedient?: string;
     managerMechanism?: string;
-    /** Atributos não mapeados do bpmn2:BpmnProcess, para round-trip. */
-    extraAttributes?: Record<string, string>;
-    /**
-     * Versão do `pi:Diagram` (EMF/Graphiti) — ex: "0.11.0".
-     * Usada para detectar incompatibilidade de formato entre versões do Fluig.
-     */
     diagramVersion?: string;
+    extraAttributes?: Record<string, string>;
 }
 
 export interface ProcessAssignment {
-    /** Rótulo cru ("Papel", "Grupo", "Pool Grupo", "Pool Papel"). */
     mechanism: string;
-    /** Definido quando o mecanismo é baseado em papel. */
     roleId?: string;
-    /** Definido quando o mecanismo é baseado em grupo. */
     groupId?: string;
 }
 
@@ -72,46 +64,36 @@ export interface ProcessActivityBase {
     coords?: Coordinates;
     incoming: string[];
     outgoing: string[];
-    /**
-     * Atributos XML não mapeados no modelo, preservados para round-trip sem perda.
-     * Exemplos: loopType, authNotify, expediente, frequency, esforcoCalculo.
-     */
     extraAttributes?: Record<string, string>;
+}
+
+export interface ProcessEventActivity extends ProcessActivityBase {
+    kind: 'start' | 'end' | 'end-cancel';
 }
 
 export interface ProcessTaskActivity extends ProcessActivityBase {
     kind: 'task' | 'service-task';
     managerMechanism?: string;
     assignment?: ProcessAssignment;
-    /** Nome do arquivo .js (apenas service-task). */
     scriptFileName?: string;
-    /** Valor raw do atributo managerAssignmentControllerString, para round-trip. */
     rawAssignmentXml?: string;
 }
 
 export interface ProcessGatewayActivity extends ProcessActivityBase {
     kind: 'gateway-exclusive';
     conditions: ProcessGatewayCondition[];
-    /** Valor raw do atributo condition (XStream encodificado), para round-trip. */
     rawConditionXml?: string;
 }
 
 export interface ProcessIntermediateEventActivity extends ProcessActivityBase {
     kind: 'intermediate-link-throw' | 'intermediate-link-receive' | 'intermediate-error';
-    /** Para link-throw: id do link-receive correspondente. */
     linkId?: string;
-    /** Para error: id da task à qual o evento está anexado. */
     parentTask?: string;
 }
 
 export interface ProcessSubProcessActivity extends ProcessActivityBase {
     kind: 'subprocess';
-    /** Id do processo filho referenciado. */
     process?: string;
-}
-
-export interface ProcessEventActivity extends ProcessActivityBase {
-    kind: 'start' | 'end' | 'end-cancel';
 }
 
 export type ProcessActivity =
@@ -123,11 +105,9 @@ export type ProcessActivity =
 
 export interface ProcessTransition {
     id: string;
-    /** Rótulo (vazio na maioria dos flows, "S"/"N"/"Aprovado" etc. em gateways). */
     name: string;
     sourceRef: string;
     targetRef: string;
-    /** Atributos não mapeados do bpmn2:SequenceFlow, para round-trip. */
     extraAttributes?: Record<string, string>;
 }
 
@@ -135,7 +115,6 @@ export interface ProcessSwimlane {
     id: string;
     name: string;
     coords?: Coordinates;
-    /** Atributos não mapeados do bpmn2:BpmnSwimLane (ex: cores). */
     extraAttributes?: Record<string, string>;
 }
 
@@ -144,7 +123,6 @@ export interface ProcessPool {
     name: string;
     coords?: Coordinates;
     swimlanes: ProcessSwimlane[];
-    /** Atributos não mapeados do bpmn2:BpmnPool (ex: cores). */
     extraAttributes?: Record<string, string>;
 }
 

@@ -157,6 +157,74 @@ Arquivo salvo em `events/{eventId}.js`.
 
 ## 5. Workflow — Processos e Mecanismos
 
+### Editor de `.process` Inteligente
+
+Arquivos `.process` (XMI Fluig) são registrados como linguagem dedicada `fluig-process` e ganham:
+
+| Recurso | Como acionar |
+|---|---|
+| **Hover contextual** | Passar o mouse sobre o `id` de uma activity ou transition mostra tipo, nome, mecanismo de atribuição, papel/grupo, script associado (com link para abrir) e contagem de fluxos. |
+| **CodeLens no topo do arquivo** | Linhas inline com botões `$(preview) Visualizar Workflow`, `$(checklist) Validar` e um resumo do processo (nome, versão, contagem de tarefas/serviços/gateways). |
+| **Validar processo** | Botão CodeLens `$(checklist) Validar` ou Paleta → **Fluig: Validar Processo**. Detecta scripts ausentes, transitions órfãs, atividades sem fluxo de saída, loops no fluxo, datasets referenciados inexistentes e formulário vinculado ausente. |
+| **Visualizar workflow** | Botão CodeLens `$(preview) Visualizar Workflow`, menu de contexto do Explorer no `.process` ou Paleta → **Fluig: Visualizar Workflow**. Abre painel SVG navegável ao lado. |
+
+Hover sobre `scriptFileName="repair_shop.afterTaskSave.js"` mostra ✓ verde quando o arquivo está em `workflow/scripts/`, ou ⚠ quando ausente.
+
+**Ctrl+Click** (links de documento) funciona sobre `scriptFileName="..."`, `process="..."` (sub-processo) e `cardIndex="..."` (formulário), abrindo o recurso correspondente no workspace.
+
+### Preview Visual e Editor de Processo
+
+Renderização SVG nativa do `.process` em um painel lateral com edição inline de propriedades (sem dependência de bpmn-js — usa coordenadas reais do XMI Fluig e patching cirúrgico do XML).
+
+| Recurso | Comportamento |
+|---|---|
+| **Renderização** | Pool, swimlanes, tasks, service-tasks, gateways exclusivos, sub-processos, start/end events, intermediate links/errors e annotations — cada um com forma e cor distintas. |
+| **Zoom & Pan** | Roda do mouse para zoom, arrastar para pan, botões `+`/`−`/`Fit` na toolbar. Indicador de zoom em %. |
+| **Painel de propriedades** | Clicar em qualquer atividade abre o painel lateral direito com ID (somente leitura), tipo, campo editável de nome e (para service-task) campo editável de `scriptFileName`. |
+| **Editar e salvar** | Alterar nome ou script no painel e clicar **Salvar** (ou pressionar Enter) atualiza o `.process` em disco sem reconstruir o XML — apenas o atributo alvo é substituído na linha correspondente. |
+| **Abrir Script / Sub-processo** | Botões no painel de propriedades abrem o `.js` correspondente ou o preview recursivo do processo filho. |
+| **Formulário vinculado** | O painel de propriedades exibe o formulário do processo (`cardIndex`) com botão **Abrir** que revela a pasta do formulário no Explorer. |
+| **Overlay de validação** | Atividades com erros ganham stroke vermelho e badge numérico; avisos em laranja. O painel lista os issues da atividade selecionada. |
+| **Tooltip** | Hover em qualquer elemento mostra ID, mecanismo de atribuição, papel/grupo, script, processo vinculado e problemas de validação. |
+| **Auto-refresh** | Salvar o `.process` (manual ou via editor visual) re-renderiza o painel e re-executa validações automaticamente. |
+| **Tema** | Toolbar respeita o tema do VS Code; canvas usa fundo claro fixo para legibilidade dos elementos BPMN. |
+
+### SDK e CLI para CI/CD
+
+O pacote `@fluiggers/sdk` expõe a API completa de processos para uso em pipelines de CI/CD e scripts externos, sem dependência do VS Code.
+
+**Funções exportadas:**
+
+| Função / Tipo | Descrição |
+|---|---|
+| `parseProcess(xml)` | Parseia um arquivo `.process` (string XML) e retorna `ProcessDefinition`. |
+| `validateProcessDefinition(def, ctx)` | Valida um `ProcessDefinition` e retorna lista de `ValidationIssue`. |
+| `ProcessDefinition`, `ProcessActivity`, `ProcessTransition`, ... | Tipos TypeScript completos do modelo. |
+
+**CLI `fluig-validate-process`:**
+
+Ferramenta de linha de comando instalada junto com o SDK para validar arquivos `.process` em pipelines CI/CD:
+
+```bash
+# Validar um arquivo
+npx fluig-validate-process workflow/diagrams/approval.process
+
+# Validar múltiplos arquivos
+npx fluig-validate-process workflow/diagrams/*.process
+
+# Saída JSON (para integração com outras ferramentas)
+npx fluig-validate-process --json workflow/diagrams/*.process
+```
+
+Exit code 0 = sem erros; exit code 1 = há erros de validação.
+
+**Exemplo de GitHub Actions:**
+
+```yaml
+- name: Validar processos Fluig
+  run: npx fluig-validate-process workflow/diagrams/*.process
+```
+
 Painel lateral dedicado (aba **Workflows**) lista processos e seus eventos detectados localmente em `workflow/scripts/`.
 
 ### Eventos de Processo

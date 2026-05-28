@@ -11,8 +11,9 @@ import { openWorkflowPreview, disposeAllPreviews } from '../views/workflow-previ
 import { openDiffPanel, disposeAllDiffPanels } from '../views/process-diff.webview';
 import { diffProcess } from '../../fluig/workflow/process/process.diff';
 import { parseProcess } from '../../fluig/workflow/process/process.parser';
+import { createMinimalProcessXml } from '../../fluig/workflow/process/process.factory';
 import { execFile } from 'child_process';
-import { relative } from 'path';
+import { relative, join } from 'path';
 
 const PROCESS_SELECTOR: vscode.DocumentSelector = { language: 'fluig-process', scheme: 'file' };
 
@@ -46,6 +47,10 @@ export function registerProcessCommands(context: vscode.ExtensionContext): void 
         vscode.commands.registerCommand(
             'fluiggers-fluig-vscode-extension.diffProcessWithGit',
             (uri?: vscode.Uri) => diffProcessWithGit(uri)
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.createProcess',
+            () => createProcess()
         ),
     );
 }
@@ -157,6 +162,67 @@ async function diffProcessWithGit(uri?: vscode.Uri): Promise<void> {
         afterDef,
         diff.changes
     );
+}
+
+// ── Criar novo processo ───────────────────────────────────────────────────
+
+async function createProcess(): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+        vscode.window.showErrorMessage('Abra um workspace para criar um processo.');
+        return;
+    }
+
+    const id = await vscode.window.showInputBox({
+        title: 'Novo Processo Fluig — ID',
+        prompt: 'Identificador do processo (letras, números, _ e -)',
+        validateInput: v => /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(v ?? '')
+            ? undefined
+            : 'Use apenas letras, números, _ ou - e inicie com letra.',
+    });
+    if (!id) { return; }
+
+    const name = await vscode.window.showInputBox({
+        title: 'Novo Processo Fluig — Nome',
+        prompt: 'Nome de exibição do processo',
+        value: id,
+    });
+    if (!name) { return; }
+
+    const swimlaneName = await vscode.window.showInputBox({
+        title: 'Novo Processo Fluig — Swimlane',
+        prompt: 'Nome da swimlane inicial (deixe em branco para "Geral")',
+        value: '',
+    });
+    if (swimlaneName === undefined) { return; }
+
+    const diagDir = vscode.Uri.file(join(folder.uri.fsPath, 'workflow', 'diagrams'));
+    try {
+        await vscode.workspace.fs.createDirectory(diagDir);
+    } catch {
+        // Diretório já existe — ok
+    }
+
+    const target = vscode.Uri.file(join(diagDir.fsPath, `${id}.process`));
+    try {
+        await vscode.workspace.fs.stat(target);
+        const overwrite = await vscode.window.showWarningMessage(
+            `O arquivo "${id}.process" já existe. Deseja substituí-lo?`,
+            { modal: true }, 'Substituir'
+        );
+        if (overwrite !== 'Substituir') { return; }
+    } catch {
+        // Arquivo não existe — ok criar
+    }
+
+    try {
+        const xml = createMinimalProcessXml({ id, name, swimlaneName: swimlaneName || undefined });
+        await vscode.workspace.fs.writeFile(target, Buffer.from(xml, 'utf-8'));
+        log.info(`Processo criado: ${target.fsPath}`);
+        openWorkflowPreview(target);
+    } catch (err: any) {
+        vscode.window.showErrorMessage(`Erro ao criar processo: ${err.message}`);
+    }
 }
 
 function runGitShow(cwd: string, relativePath: string): Promise<string> {

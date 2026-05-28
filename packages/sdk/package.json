@@ -4,12 +4,18 @@
     "description": "SDK para integração com a plataforma TOTVS Fluig",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
+    "bin": {
+        "fluig-validate-process": "./dist/cli/validate-process.js"
+    },
     "files": [
         "dist"
     ],
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
         "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "fast-xml-parser": "^5.8.0"
     },
     "peerDependencies": {
         "puppeteer-core": ">=24",

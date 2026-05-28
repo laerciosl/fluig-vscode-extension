@@ -1,8 +1,5 @@
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
-
-/** Versões do pi:Diagram (Graphiti EMF) testadas e compatíveis com esta extensão. */
-const KNOWN_DIAGRAM_VERSIONS = new Set(['0.11.0', '0.10.0', '0.9.0']);
 import {
     ProcessActivity,
     ProcessDefinition,
@@ -12,39 +9,31 @@ import {
     ProcessTaskActivity,
 } from './process.types';
 
+const KNOWN_DIAGRAM_VERSIONS = new Set(['0.11.0', '0.10.0', '0.9.0']);
+
 export type ValidationSeverity = 'error' | 'warning' | 'info';
 
 export interface ValidationIssue {
     severity: ValidationSeverity;
     code: string;
     message: string;
-    /** ID da activity/transition relevante (para localizar a posição no editor). */
     targetId?: string;
 }
 
 export interface ValidationContext {
-    /** Caminho absoluto do .process — usado para resolver scripts locais. */
     processFsPath: string;
 }
 
-/**
- * Conjunto puro de regras — recebe a `ProcessDefinition` parseada e retorna
- * a lista de problemas. Não toca em VS Code (testável).
- */
 export function validateProcessDefinition(
     def: ProcessDefinition,
     ctx: ValidationContext
 ): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
-
     const activityIds = new Set(def.activities.map(a => a.id));
     const scriptsDir = join(dirname(ctx.processFsPath), 'scripts');
 
-    // Regra 1 — service tasks com script ausente localmente.
     for (const task of def.activities) {
-        if (task.kind !== 'service-task') {
-            continue;
-        }
+        if (task.kind !== 'service-task') { continue; }
         const t = task as ProcessTaskActivity;
         if (!t.scriptFileName) {
             issues.push({
@@ -66,7 +55,6 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 2 — Transitions apontando para activity inexistente.
     for (const t of def.transitions) {
         if (t.sourceRef && !activityIds.has(t.sourceRef)) {
             issues.push({
@@ -86,7 +74,6 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 3 — Atividades sem fluxos de saída (exceto end events).
     for (const activity of def.activities) {
         if (activity.outgoing.length === 0 && !isTerminal(activity)) {
             issues.push({
@@ -98,14 +85,9 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 4 — Processo sem start event.
     const startEvents = def.activities.filter(a => a.kind === 'start');
     if (startEvents.length === 0) {
-        issues.push({
-            severity: 'error',
-            code: 'no-start-event',
-            message: 'Processo não tem evento de início.',
-        });
+        issues.push({ severity: 'error', code: 'no-start-event', message: 'Processo não tem evento de início.' });
     } else if (startEvents.length > 1) {
         issues.push({
             severity: 'warning',
@@ -114,25 +96,15 @@ export function validateProcessDefinition(
         });
     }
 
-    // Regra 5 — Processo sem end event.
     const endEvents = def.activities.filter(a => a.kind === 'end' || a.kind === 'end-cancel');
     if (endEvents.length === 0) {
-        issues.push({
-            severity: 'warning',
-            code: 'no-end-event',
-            message: 'Processo não tem evento de fim.',
-        });
+        issues.push({ severity: 'warning', code: 'no-end-event', message: 'Processo não tem evento de fim.' });
     }
 
-    // Regra 6 — Sub-processo referenciando um .process inexistente no workspace.
     for (const activity of def.activities) {
-        if (activity.kind !== 'subprocess') {
-            continue;
-        }
+        if (activity.kind !== 'subprocess') { continue; }
         const sub = activity as ProcessSubProcessActivity;
-        if (!sub.process) {
-            continue;
-        }
+        if (!sub.process) { continue; }
         const subPath = join(dirname(ctx.processFsPath), `${sub.process}.process`);
         if (!existsSync(subPath)) {
             issues.push({
@@ -144,16 +116,13 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 7 — Intermediate link throw apontando para um receive inexistente.
     const linkReceives = new Set(
         def.activities
             .filter(a => a.kind === 'intermediate-link-receive')
             .map(a => a.id)
     );
     for (const activity of def.activities) {
-        if (activity.kind !== 'intermediate-link-throw') {
-            continue;
-        }
+        if (activity.kind !== 'intermediate-link-throw') { continue; }
         const ev = activity as ProcessIntermediateEventActivity;
         if (ev.linkId && !linkReceives.has(ev.linkId)) {
             issues.push({
@@ -165,7 +134,6 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 8 — Versão do diagrama não testada (Fase 11).
     const dv = def.metadata.diagramVersion;
     if (dv && !KNOWN_DIAGRAM_VERSIONS.has(dv)) {
         issues.push({
@@ -175,7 +143,6 @@ export function validateProcessDefinition(
         });
     }
 
-    // Regra 9 — Atividades sem caminho para um end event (dead ends).
     const deadEnds = findDeadEnds(def);
     for (const id of deadEnds) {
         const activity = def.activities.find(a => a.id === id);
@@ -187,7 +154,6 @@ export function validateProcessDefinition(
         });
     }
 
-    // Regra 10 — Formulário principal não encontrado no workspace.
     if (def.metadata.cardIndex) {
         const formExists = checkFormExists(ctx.processFsPath, def.metadata.cardIndex);
         if (!formExists) {
@@ -199,7 +165,6 @@ export function validateProcessDefinition(
         }
     }
 
-    // Regra 11 — Detecção de ciclos (loops) no grafo de fluxo.
     const cycleNodeIds = detectCycles(def);
     for (const id of cycleNodeIds) {
         const activity = def.activities.find(a => a.id === id);
@@ -211,7 +176,6 @@ export function validateProcessDefinition(
         });
     }
 
-    // Regra 12 — Dataset referenciado em condição de gateway não encontrado no workspace.
     for (const activity of def.activities) {
         if (activity.kind !== 'gateway-exclusive') { continue; }
         const gw = activity as ProcessGatewayActivity;
@@ -235,21 +199,12 @@ export function validateProcessDefinition(
     return issues;
 }
 
-// ── Dead end detection ────────────────────────────────────────────────────
-
-/**
- * Encontra atividades sem caminho para nenhum end event.
- * Usa BFS inverso a partir dos end events.
- */
 function findDeadEnds(def: ProcessDefinition): string[] {
     if (def.activities.length === 0) { return []; }
-
     const endIds = new Set(
         def.activities.filter(a => a.kind === 'end' || a.kind === 'end-cancel').map(a => a.id)
     );
     if (endIds.size === 0) { return []; }
-
-    // Grafo reverso: targetRef → sourceRef[]
     const reverse = new Map<string, string[]>();
     for (const a of def.activities) { reverse.set(a.id, []); }
     for (const t of def.transitions) {
@@ -257,8 +212,6 @@ function findDeadEnds(def: ProcessDefinition): string[] {
             reverse.get(t.targetRef)!.push(t.sourceRef);
         }
     }
-
-    // BFS inverso a partir dos end events
     const reachable = new Set<string>(endIds);
     const queue = [...endIds];
     while (queue.length > 0) {
@@ -270,18 +223,11 @@ function findDeadEnds(def: ProcessDefinition): string[] {
             }
         }
     }
-
     return def.activities
         .filter(a => !reachable.has(a.id) && !isTerminal(a))
         .map(a => a.id);
 }
 
-// ── Form existence ────────────────────────────────────────────────────────
-
-/**
- * Verifica se o formulário `cardIndex` existe no workspace.
- * Procura nas localizações padrão do Fluig, percorrendo até 4 níveis acima do .process.
- */
 function checkFormExists(processFsPath: string, cardIndex: string): boolean {
     let dir = dirname(processFsPath);
     for (let i = 0; i < 5; i++) {
@@ -308,12 +254,6 @@ function isTerminal(activity: ProcessActivity): boolean {
     );
 }
 
-// ── Cycle detection ───────────────────────────────────────────────────────
-
-/**
- * Retorna os IDs das atividades que participam de pelo menos um ciclo.
- * Usa DFS iterativo com rastreamento de pilha.
- */
 function detectCycles(def: ProcessDefinition): string[] {
     const adj = new Map<string, string[]>();
     for (const a of def.activities) { adj.set(a.id, []); }
@@ -322,11 +262,9 @@ function detectCycles(def: ProcessDefinition): string[] {
             adj.get(t.sourceRef)!.push(t.targetRef);
         }
     }
-
     const visited = new Set<string>();
     const inStack = new Set<string>();
     const cycleNodes = new Set<string>();
-
     function dfs(nodeId: string): void {
         if (inStack.has(nodeId)) { cycleNodes.add(nodeId); return; }
         if (visited.has(nodeId)) { return; }
@@ -335,12 +273,9 @@ function detectCycles(def: ProcessDefinition): string[] {
         for (const next of adj.get(nodeId) ?? []) { dfs(next); }
         inStack.delete(nodeId);
     }
-
     for (const a of def.activities) { dfs(a.id); }
     return [...cycleNodes];
 }
-
-// ── Dataset reference extraction ──────────────────────────────────────────
 
 function extractDatasetRefs(expression: string): string[] {
     if (!expression) { return []; }

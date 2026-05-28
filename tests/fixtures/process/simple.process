@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="ASCII"?>
+<xmi:XMI xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:al="http://eclipse.org/graphiti/mm/algorithms" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL-XMI" xmlns:pi="http://eclipse.org/graphiti/mm/pictograms">
+  <pi:Diagram visible="true" gridUnit="10" diagramTypeId="BPMNdiagram" name="simple" snapToGrid="true" showGuides="true" pictogramLinks="/0/@children.0/@link /0/@children.0/@children.0/@link /0/@children.1/@link /0/@children.2/@link /0/@children.3/@link /0/@connections.0/@link /0/@connections.1/@link" version="0.11.0">
+    <graphicsAlgorithm xsi:type="al:Rectangle" width="1000" height="1000"/>
+    <styles foreground="/0/@colors.0" lineWidth="1"/>
+    <colors red="51" green="51" blue="51"/>
+    <fonts name="Arial" size="8"/>
+    <fonts name="Arial" size="8" bold="true"/>
+    <fonts name="Arial" size="11" bold="true"/>
+    <children xsi:type="pi:ContainerShape" visible="true" active="true">
+      <graphicsAlgorithm xsi:type="al:Rectangle" width="800" height="200" x="10" y="10"/>
+      <link businessObjects="pool1"/>
+      <anchors xsi:type="pi:ChopboxAnchor"/>
+      <children xsi:type="pi:ContainerShape" visible="true" active="true">
+        <graphicsAlgorithm xsi:type="al:Rectangle" width="770" height="200" x="30" y="0"/>
+        <link businessObjects="lane1"/>
+        <anchors xsi:type="pi:ChopboxAnchor"/>
+      </children>
+    </children>
+    <children xsi:type="pi:ContainerShape" visible="true" active="true">
+      <graphicsAlgorithm xsi:type="al:Ellipse" width="35" height="35" x="60" y="90"/>
+      <link businessObjects="start1"/>
+      <anchors xsi:type="pi:ChopboxAnchor" outgoingConnections="/0/@connections.0"/>
+      <anchors xsi:type="pi:BoxRelativeAnchor" visible="true" active="true" referencedGraphicsAlgorithm="/0/@children.1/@graphicsAlgorithm" relativeWidth="1.0" relativeHeight="0.51">
+        <graphicsAlgorithm xsi:type="al:Ellipse" filled="false" lineVisible="false"/>
+      </anchors>
+    </children>
+    <children xsi:type="pi:ContainerShape" visible="true" active="true">
+      <graphicsAlgorithm xsi:type="al:Rectangle" width="106" height="60" x="160" y="80"/>
+      <link businessObjects="task1"/>
+      <anchors xsi:type="pi:ChopboxAnchor" incomingConnections="/0/@connections.0" outgoingConnections="/0/@connections.1"/>
+      <anchors xsi:type="pi:BoxRelativeAnchor" visible="true" active="true" referencedGraphicsAlgorithm="/0/@children.2/@graphicsAlgorithm" relativeWidth="1.0" relativeHeight="0.51">
+        <graphicsAlgorithm xsi:type="al:Ellipse" filled="false" lineVisible="false"/>
+      </anchors>
+      <children visible="true">
+        <graphicsAlgorithm xsi:type="al:MultiText" width="96" height="50" x="5" y="5" font="/0/@fonts.0" value="Aprovar"/>
+      </children>
+    </children>
+    <children xsi:type="pi:ContainerShape" visible="true" active="true">
+      <graphicsAlgorithm xsi:type="al:Ellipse" width="35" height="35" x="330" y="90"/>
+      <link businessObjects="end1"/>
+      <anchors xsi:type="pi:ChopboxAnchor" incomingConnections="/0/@connections.1"/>
+      <anchors xsi:type="pi:BoxRelativeAnchor" visible="true" active="true" referencedGraphicsAlgorithm="/0/@children.3/@graphicsAlgorithm" relativeWidth="1.0" relativeHeight="0.51">
+        <graphicsAlgorithm xsi:type="al:Ellipse" filled="false" lineVisible="false"/>
+      </anchors>
+    </children>
+    <connections xsi:type="pi:FreeFormConnection" visible="true" active="true" start="/0/@children.1/@anchors.0" end="/0/@children.2/@anchors.0">
+      <graphicsAlgorithm xsi:type="al:Polyline" lineWidth="1" filled="false"/>
+      <link businessObjects="flow1"/>
+      <connectionDecorators visible="true" active="true" locationRelative="true" location="0.5">
+        <graphicsAlgorithm xsi:type="al:Text" filled="false" value=""/>
+      </connectionDecorators>
+      <connectionDecorators visible="true" locationRelative="true" location="1.0">
+        <graphicsAlgorithm xsi:type="al:Polygon" filled="true">
+          <points x="-10" y="-5"/>
+          <points/>
+          <points x="-10" y="5"/>
+        </graphicsAlgorithm>
+      </connectionDecorators>
+    </connections>
+    <connections xsi:type="pi:FreeFormConnection" visible="true" active="true" start="/0/@children.2/@anchors.0" end="/0/@children.3/@anchors.0">
+      <graphicsAlgorithm xsi:type="al:Polyline" lineWidth="1" filled="false"/>
+      <link businessObjects="flow2"/>
+      <connectionDecorators visible="true" active="true" locationRelative="true" location="0.5">
+        <graphicsAlgorithm xsi:type="al:Text" filled="false" value=""/>
+      </connectionDecorators>
+      <connectionDecorators visible="true" locationRelative="true" location="1.0">
+        <graphicsAlgorithm xsi:type="al:Polygon" filled="true">
+          <points x="-10" y="-5"/>
+          <points/>
+          <points x="-10" y="5"/>
+        </graphicsAlgorithm>
+      </connectionDecorators>
+    </connections>
+  </pi:Diagram>
+  <bpmn2:BpmnProcess id="simple" name="Processo Simples" version="1" publicProcess="false"/>
+  <bpmn2:BpmnPool id="pool1" name="Pool Principal"/>
+  <bpmn2:BpmnSwimLane id="lane1" name="Aprovação"/>
+  <bpmn2:BpmnStartEvent id="start1" name="Início" outgoing="flow1" type="10"/>
+  <bpmn2:BpmnTask id="task1" name="Aprovar" incoming="flow1" outgoing="flow2" type="80" managerMechanism="Papel"/>
+  <bpmn2:BpmnEndEvent id="end1" name="Fim" incoming="flow2" type="0"/>
+  <bpmn2:SequenceFlow id="flow1" name="" sourceRef="start1" targetRef="task1"/>
+  <bpmn2:SequenceFlow id="flow2" name="" sourceRef="task1" targetRef="end1"/>
+</xmi:XMI>

@@ -4,8 +4,8 @@ import { existsSync } from 'fs';
 
 /**
  * `DocumentLinkProvider` para `.process`. Transforma atributos como
- * `scriptFileName="repair_shop.servicetask113.js"` ou `process="service_order_credit"`
- * em links Ctrl+Click que abrem o arquivo correspondente no workspace.
+ * `scriptFileName="name.js"`, `process="subProcess"` e `cardIndex="formName"`
+ * em links Ctrl+Click que abrem o recurso correspondente no workspace.
  */
 export class ProcessLinkProvider implements vscode.DocumentLinkProvider {
     provideDocumentLinks(document: vscode.TextDocument): vscode.DocumentLink[] {
@@ -48,6 +48,45 @@ export class ProcessLinkProvider implements vscode.DocumentLinkProvider {
             links.push(link);
         }
 
+        // cardIndex="<formName>" em bpmn2:BpmnProcess
+        const cardRe = /\bcardIndex="([^"]+)"/g;
+        for (const match of text.matchAll(cardRe)) {
+            const formName = match[1];
+            const offset = match.index! + match[0].indexOf(formName);
+            const range = new vscode.Range(
+                document.positionAt(offset),
+                document.positionAt(offset + formName.length)
+            );
+            const formTarget = resolveFormPath(baseDir, formName);
+            if (formTarget) {
+                const link = new vscode.DocumentLink(range, vscode.Uri.file(formTarget));
+                link.tooltip = `Abrir formulário ${formName}`;
+                links.push(link);
+            } else {
+                const link = new vscode.DocumentLink(range);
+                link.tooltip = `Formulário "${formName}" não encontrado no workspace`;
+                links.push(link);
+            }
+        }
+
         return links;
     }
+}
+
+function resolveFormPath(baseDir: string, formName: string): string | undefined {
+    let dir = baseDir;
+    for (let i = 0; i < 5; i++) {
+        const candidates = [
+            join(dir, 'forms', formName),
+            join(dir, 'forms', `${formName}.form`),
+            join(dir, `${formName}.form`),
+        ];
+        for (const c of candidates) {
+            if (existsSync(c)) { return c; }
+        }
+        const parent = dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
+    }
+    return undefined;
 }

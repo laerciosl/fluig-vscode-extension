@@ -365,6 +365,10 @@
 			{
 				"command": "fluiggers-fluig-vscode-extension.diffProcessWithGit",
 				"title": "Fluig: Comparar Processo com HEAD (Git)"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.createProcess",
+				"title": "Fluig: Novo Processo"
 			}
 		],
 		"menus": {
@@ -427,6 +431,11 @@
 				}
 			],
 			"explorer/context": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.createProcess",
+					"when": "explorerResourceIsFolder",
+					"group": "1_Fluig4Workflow@-1"
+				},
 				{
 					"command": "fluiggers-fluig-vscode-extension.previewProcess",
 					"when": "resourceExtname == .process",

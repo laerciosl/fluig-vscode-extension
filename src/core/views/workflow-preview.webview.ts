@@ -5,6 +5,10 @@ import { parseProcess } from '../../fluig/workflow/process/process.parser';
 import { buildRenderModel, RenderModel } from '../../fluig/workflow/process/process-to-render.mapper';
 import { validateProcessDefinition, ValidationIssue } from '../../fluig/workflow/process/process.validator';
 import { patchActivityName, patchActivityScriptFileName } from '../../fluig/workflow/process/process.patcher';
+import { extractEmfDiagram } from '../../fluig/workflow/process/process.emf-parser';
+import { ProcessGraph } from '../../fluig/workflow/process/process.graph';
+import type { ActivityKind } from '../../fluig/workflow/process/process.types';
+import type { GatewayConditionInput } from '../../fluig/workflow/process/process.graph';
 import { createLogger } from '../logger';
 
 const log = createLogger('[PROCESS]');
@@ -122,6 +126,9 @@ class WorkflowPreviewPanel {
             case 'openSubProcess':
                 await this.openSubProcess(message.processId);
                 break;
+            case 'openForm':
+                await this.openForm(message.formName);
+                break;
             case 'patchActivity': {
                 const { id, name, scriptFileName } = message.patch;
                 let xml = this.currentXml;
@@ -143,6 +150,50 @@ class WorkflowPreviewPanel {
                 await this.refresh();
                 break;
             }
+            case 'addNode':
+                await this.applyGraphOp(g =>
+                    g.addNode(message.kind, message.name, { x: message.x, y: message.y })
+                );
+                break;
+            case 'removeNode':
+                await this.applyGraphOp(g => g.removeNode(message.id));
+                break;
+            case 'moveNode':
+                await this.applyGraphOp(g => g.moveNode(message.id, message.x, message.y));
+                break;
+            case 'connectNodes':
+                await this.applyGraphOp(g => g.connect(message.sourceId, message.targetId));
+                break;
+            case 'disconnectFlow':
+                await this.applyGraphOp(g => g.disconnect(message.flowId));
+                break;
+            case 'updateAssignment':
+                await this.applyGraphOp(g =>
+                    g.updateAssignment(message.id, message.mechanism, message.roleId, message.groupId)
+                );
+                break;
+            case 'updateConditions':
+                await this.applyGraphOp(g =>
+                    g.updateGatewayConditions(message.id, message.conditions as GatewayConditionInput[])
+                );
+                break;
+            case 'updateSla':
+                await this.applyGraphOp(g => g.updateSla(message.id, message.expediente));
+                break;
+        }
+    }
+
+    private async applyGraphOp(op: (graph: ProcessGraph) => void): Promise<void> {
+        try {
+            const def = parseProcess(this.currentXml);
+            const emf = extractEmfDiagram(this.currentXml);
+            const graph = ProcessGraph.from(def, emf);
+            op(graph);
+            const newXml = graph.serialize();
+            await vscode.workspace.fs.writeFile(this.processUri, Buffer.from(newXml, 'utf-8'));
+            await this.refresh();
+        } catch (err: any) {
+            vscode.window.showErrorMessage(`Erro ao editar processo: ${err.message}`);
         }
     }
 
@@ -171,6 +222,40 @@ class WorkflowPreviewPanel {
         }
         openWorkflowPreview(candidate);
     }
+
+    private async openForm(formName: string): Promise<void> {
+        const formUri = resolveFormUri(this.processUri.fsPath, formName);
+        if (!formUri) {
+            vscode.window.showWarningMessage(
+                `Formulário "${formName}" não encontrado no workspace (procurado em forms/${formName}/ e ${formName}.form).`
+            );
+            return;
+        }
+        const stat = await vscode.workspace.fs.stat(formUri).then(() => true, () => false);
+        if (!stat) {
+            vscode.window.showWarningMessage(`Formulário "${formName}" não encontrado.`);
+            return;
+        }
+        await vscode.commands.executeCommand('revealInExplorer', formUri);
+    }
+}
+
+function resolveFormUri(processFsPath: string, formName: string): vscode.Uri | undefined {
+    let dir = dirname(processFsPath);
+    for (let i = 0; i < 5; i++) {
+        const candidates = [
+            join(dir, 'forms', formName),
+            join(dir, 'forms', `${formName}.form`),
+            join(dir, `${formName}.form`),
+        ];
+        for (const c of candidates) {
+            if (existsSync(c)) { return vscode.Uri.file(c); }
+        }
+        const parent = dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
+    }
+    return undefined;
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────
@@ -178,7 +263,16 @@ class WorkflowPreviewPanel {
 type PreviewMessage =
     | { type: 'openScript'; scriptFileName: string }
     | { type: 'openSubProcess'; processId: string }
-    | { type: 'patchActivity'; patch: { id: string; name?: string; scriptFileName?: string } };
+    | { type: 'openForm'; formName: string }
+    | { type: 'patchActivity'; patch: { id: string; name?: string; scriptFileName?: string } }
+    | { type: 'addNode'; kind: ActivityKind; name: string; x: number; y: number }
+    | { type: 'removeNode'; id: string }
+    | { type: 'moveNode'; id: string; x: number; y: number }
+    | { type: 'connectNodes'; sourceId: string; targetId: string }
+    | { type: 'disconnectFlow'; flowId: string }
+    | { type: 'updateAssignment'; id: string; mechanism: string; roleId?: string; groupId?: string }
+    | { type: 'updateConditions'; id: string; conditions: Array<{ expression: string; targetTaskId: string }> }
+    | { type: 'updateSla'; id: string; expediente: string };
 
 // ── HTML rendering ────────────────────────────────────────────────────────
 
@@ -222,7 +316,17 @@ function renderModelHtml(model: RenderModel, issues: ValidationIssue[]): string 
             <span class="meta">${model.activities.length} atividades · ${model.edges.length} fluxos</span>
         </div>
         <div class="actions">
-            <button id="btn-fit" title="Ajustar à tela">$ Fit</button>
+            <button id="btn-edit-mode" title="Ativar modo de edição estrutural">Editar</button>
+            <span class="action-sep"></span>
+            <span id="palette">
+                <button class="palette-btn" data-kind="task" title="Adicionar tarefa">Tarefa</button>
+                <button class="palette-btn" data-kind="service-task" title="Adicionar service task">Serviço</button>
+                <button class="palette-btn" data-kind="gateway-exclusive" title="Adicionar gateway">Gateway</button>
+                <button class="palette-btn" data-kind="start" title="Adicionar início">Início</button>
+                <button class="palette-btn" data-kind="end" title="Adicionar fim">Fim</button>
+            </span>
+            <span class="action-sep" id="sep-edit"></span>
+            <button id="btn-fit" title="Ajustar à tela">Fit</button>
             <button id="btn-zoom-in" title="Aumentar zoom">+</button>
             <button id="btn-zoom-out" title="Diminuir zoom">−</button>
             <span id="zoom-indicator">100%</span>
@@ -254,15 +358,36 @@ function renderModelHtml(model: RenderModel, issues: ValidationIssue[]): string 
                     <label class="field-label">Script</label>
                     <input id="prop-script" type="text" class="field-input" placeholder="arquivo.js"/>
                 </div>
-                <div class="field-row" id="row-mechanism">
+                <div class="field-row" id="row-assignment">
                     <label class="field-label">Mecanismo</label>
-                    <span id="prop-mechanism" class="field-readonly"></span>
+                    <select id="prop-mechanism-select" class="field-input">
+                        <option value="Papel">Papel</option>
+                        <option value="Pool Papel">Pool Papel</option>
+                        <option value="Grupo">Grupo</option>
+                        <option value="Pool Grupo">Pool Grupo</option>
+                    </select>
                 </div>
-                <div class="field-row" id="row-role">
-                    <label class="field-label">Papel/Grupo</label>
-                    <span id="prop-role" class="field-readonly"></span>
+                <div class="field-row" id="row-role-input">
+                    <label class="field-label" id="lbl-role-input">Papel/Grupo</label>
+                    <input id="prop-role-input" type="text" class="field-input" placeholder="id do papel ou grupo"/>
+                </div>
+                <div class="field-row" id="row-sla">
+                    <label class="field-label">Expediente (SLA)</label>
+                    <input id="prop-sla" type="text" class="field-input" placeholder="ex: Default, 8h"/>
+                </div>
+                <div id="row-conditions" hidden>
+                    <div class="field-label" style="margin-bottom:4px">Condições de saída</div>
+                    <div id="conditions-list"></div>
+                    <button id="btn-add-condition" class="btn-secondary" style="margin-top:4px;font-size:11px">+ Condição</button>
                 </div>
                 <div id="row-issues" class="issues-list" hidden></div>
+                <div id="row-form" class="field-row" hidden>
+                    <label class="field-label">Formulário do Processo</label>
+                    <div style="display:flex;gap:4px;align-items:center">
+                        <span id="prop-form-name" class="field-readonly" style="flex:1"></span>
+                        <button id="btn-open-form" class="btn-secondary" style="flex-shrink:0;font-size:11px">Abrir</button>
+                    </div>
+                </div>
                 <div class="panel-actions">
                     <button id="btn-save-props" class="btn-primary">Salvar</button>
                     <button id="btn-open-script" hidden>Abrir Script</button>
@@ -360,6 +485,13 @@ html, body {
     border-radius: 3px; width: 100%;
 }
 .field-input:focus { outline: 1px solid var(--vscode-focusBorder); border-color: var(--vscode-focusBorder); }
+.btn-secondary { font-size: 12px; font-family: inherit; padding: 4px 10px; cursor: pointer; border-radius: 3px; border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.btn-secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.condition-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+.condition-row .cond-expr { flex: 2; }
+.condition-row .cond-target { flex: 1; min-width: 60px; }
+.condition-row .cond-remove { flex-shrink: 0; padding: 2px 6px; font-size: 13px; cursor: pointer; border: none; background: none; color: var(--vscode-errorForeground); opacity: 0.7; }
+.condition-row .cond-remove:hover { opacity: 1; }
 .panel-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .panel-actions button {
     font-size: 12px; font-family: inherit; padding: 4px 10px; cursor: pointer; border-radius: 3px;
@@ -426,6 +558,33 @@ html, body {
 }
 
 .issue-dot { pointer-events: none; }
+
+/* ── Edit mode ── */
+.action-sep { display: inline-block; width: 1px; height: 16px; background: var(--vscode-panel-border); margin: 0 4px; vertical-align: middle; }
+#btn-edit-mode { border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); padding: 2px 10px; cursor: pointer; font-size: 12px; border-radius: 3px; }
+#btn-edit-mode:hover { background: var(--vscode-button-secondaryHoverBackground); }
+#btn-edit-mode.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color: transparent; }
+#palette { display: none; gap: 3px; align-items: center; }
+#sep-edit { display: none; }
+.toolbar.edit-mode #palette { display: inline-flex; }
+.toolbar.edit-mode #sep-edit { display: inline-block; }
+.toolbar.edit-mode { outline: 2px solid rgba(0,120,212,0.2); outline-offset: -2px; }
+.palette-btn { font-size: 11px; padding: 2px 8px; border-radius: 3px; cursor: pointer; border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.palette-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.palette-btn.active { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+#canvas-wrapper.placing { cursor: crosshair; }
+#canvas-wrapper.drawing-conn { cursor: crosshair; }
+
+/* ── Connection handles ── */
+.handle { fill: white; stroke: #00c853; stroke-width: 2; opacity: 0; cursor: crosshair; transition: opacity 0.12s; pointer-events: all; }
+#canvas.edit-mode .node:hover .handle { opacity: 1; }
+.handle:hover, .handle:active { opacity: 1 !important; fill: #00c853; }
+.temp-edge { stroke: #00c853; stroke-width: 1.5; stroke-dasharray: 5 3; fill: none; pointer-events: none; }
+
+/* ── Selectable edges ── */
+.edge-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.edge-group.edge-selected .edge { stroke: #d84315; stroke-width: 2.5; }
+.edge-group.edge-selected .edge-label { fill: #d84315; }
 `;
 
 // ── Client script (executes inside the webview) ───────────────────────────
@@ -448,6 +607,27 @@ const CLIENT_SCRIPT = /* javascript */ `
     let panning = false;
     let panStart = null;
     let selectedActivity = null;
+
+    // ── Edit mode state ────────────────────────────────────────────
+    let editMode = false;
+    let placingKind = null;
+    let dragging = null;         // { id, startX, startY, origX, origY, gEl }
+    let drawingConnection = null; // { sourceId, tempLine }
+    let selectedEdgeId = null;
+
+    const PALETTE_LABELS = {
+        'task': 'Nova Tarefa', 'service-task': 'Novo Serviço',
+        'gateway-exclusive': 'Gateway', 'start': 'Início', 'end': 'Fim',
+        'subprocess': 'Sub-processo',
+    };
+
+    function clientToViewBox(clientX, clientY) {
+        const rect = svg.getBoundingClientRect();
+        return {
+            x: viewBox.x + (clientX - rect.left) * (viewBox.width / rect.width),
+            y: viewBox.y + (clientY - rect.top) * (viewBox.height / rect.height),
+        };
+    }
 
     function applyViewBox() {
         svg.setAttribute('viewBox', viewBox.x + ' ' + viewBox.y + ' ' + viewBox.width + ' ' + viewBox.height);
@@ -539,8 +719,27 @@ const CLIENT_SCRIPT = /* javascript */ `
             continue;
         }
         const d = 'M ' + wps.map(p => p.x + ' ' + p.y).join(' L ');
-        const path = el('path', { d, class: 'edge', 'marker-end': 'url(#arrow)' });
-        svg.appendChild(path);
+        const edgeGroup = el('g', { class: 'edge-group', 'data-flow-id': e.id });
+        edgeGroup.appendChild(el('path', { d, class: 'edge', 'marker-end': 'url(#arrow)' }));
+        // Invisible wider path for click-to-select
+        const hitArea = el('path', { d, class: 'edge-hit' });
+        hitArea.addEventListener('click', (ev) => {
+            if (!editMode) { return; }
+            ev.stopPropagation();
+            if (selectedEdgeId === e.id) {
+                selectedEdgeId = null;
+                edgeGroup.classList.remove('edge-selected');
+            } else {
+                if (selectedEdgeId) {
+                    const prev = document.querySelector('[data-flow-id="' + selectedEdgeId + '"]');
+                    if (prev) { prev.classList.remove('edge-selected'); }
+                }
+                selectedEdgeId = e.id;
+                edgeGroup.classList.add('edge-selected');
+                hidePropertyPanel();
+            }
+        });
+        edgeGroup.appendChild(hitArea);
         if (e.label) {
             const mid = wps[Math.floor(wps.length / 2) - 1] || wps[0];
             const next = wps[Math.floor(wps.length / 2)] || wps[wps.length - 1];
@@ -548,8 +747,9 @@ const CLIENT_SCRIPT = /* javascript */ `
             const my = (mid.y + next.y) / 2;
             const t = el('text', { x: mx, y: my - 4, class: 'edge-label' });
             t.textContent = e.label;
-            svg.appendChild(t);
+            edgeGroup.appendChild(t);
         }
+        svg.appendChild(edgeGroup);
     }
 
     // Activities
@@ -689,12 +889,49 @@ const CLIENT_SCRIPT = /* javascript */ `
 
         // Click — select and show property panel
         g.addEventListener('click', (ev) => {
+            if (drawingConnection) { return; } // handled by pointerup
             ev.stopPropagation();
+            // Deselect any edge
+            if (selectedEdgeId) {
+                const prev = document.querySelector('[data-flow-id="' + selectedEdgeId + '"]');
+                if (prev) { prev.classList.remove('edge-selected'); }
+                selectedEdgeId = null;
+            }
             document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
             g.classList.add('selected');
             selectedActivity = a;
             showPropertyPanel(a);
         });
+
+        // Drag in edit mode
+        g.addEventListener('pointerdown', (ev) => {
+            if (!editMode || ev.button !== 0) { return; }
+            if (ev.target.closest('.handle')) { return; } // handle manages its own drag
+            ev.stopPropagation();
+            dragging = { id: a.id, startX: ev.clientX, startY: ev.clientY,
+                         origX: a.x, origY: a.y, gEl: g };
+            g.setPointerCapture(ev.pointerId);
+        });
+
+        // Connection handles (visible on hover in edit mode via CSS)
+        const handlePositions = [
+            { x: cx,          y: a.y           }, // N
+            { x: cx,          y: a.y + a.height }, // S
+            { x: a.x + a.width, y: cy           }, // E
+            { x: a.x,         y: cy             }, // W
+        ];
+        for (const hp of handlePositions) {
+            const h = el('circle', { cx: hp.x, cy: hp.y, r: 6, class: 'handle' });
+            h.addEventListener('pointerdown', (ev) => {
+                if (!editMode) { return; }
+                ev.stopPropagation();
+                const tempLine = el('line', { x1: hp.x, y1: hp.y, x2: hp.x, y2: hp.y, class: 'temp-edge' });
+                svg.appendChild(tempLine);
+                drawingConnection = { sourceId: a.id, tempLine };
+                svg.setPointerCapture(ev.pointerId);
+            });
+            g.appendChild(h);
+        }
 
         svg.appendChild(g);
     }
@@ -718,23 +955,40 @@ const CLIENT_SCRIPT = /* javascript */ `
             btnOpenScript.hidden = true;
         }
 
-        const rowMechanism = document.getElementById('row-mechanism');
-        const propMechanism = document.getElementById('prop-mechanism');
-        if (a.managerMechanism) {
-            rowMechanism.hidden = false;
-            propMechanism.textContent = a.managerMechanism;
-        } else {
-            rowMechanism.hidden = true;
+        // ── Assignment (tasks) ──────────────────────────────────────
+        const rowAssignment = document.getElementById('row-assignment');
+        const rowRoleInput  = document.getElementById('row-role-input');
+        const rowSla        = document.getElementById('row-sla');
+        const mechanismSel  = document.getElementById('prop-mechanism-select');
+        const roleInput     = document.getElementById('prop-role-input');
+        const lblRoleInput  = document.getElementById('lbl-role-input');
+        const slaInput      = document.getElementById('prop-sla');
+
+        const isTask = a.kind === 'task' || a.kind === 'service-task';
+        rowAssignment.hidden = !isTask;
+        rowRoleInput.hidden  = !isTask;
+        rowSla.hidden        = !isTask;
+
+        if (isTask) {
+            const mech = a.managerMechanism || 'Papel';
+            mechanismSel.value = mech;
+            const isGroup = mech === 'Grupo' || mech === 'Pool Grupo';
+            lblRoleInput.textContent = isGroup ? 'Grupo' : 'Papel';
+            roleInput.placeholder    = isGroup ? 'id do grupo' : 'id do papel';
+            roleInput.value = a.roleId || a.groupId || '';
+            slaInput.value  = a.expediente || '';
         }
 
-        const rowRole = document.getElementById('row-role');
-        const propRole = document.getElementById('prop-role');
-        const roleVal = a.roleId || a.groupId || '';
-        if (roleVal) {
-            rowRole.hidden = false;
-            propRole.textContent = roleVal;
-        } else {
-            rowRole.hidden = true;
+        // ── Gateway conditions ──────────────────────────────────────
+        const rowConditions  = document.getElementById('row-conditions');
+        const conditionsList = document.getElementById('conditions-list');
+        rowConditions.hidden = a.kind !== 'gateway-exclusive';
+        if (a.kind === 'gateway-exclusive') {
+            conditionsList.innerHTML = '';
+            const conds = a.conditions || [];
+            for (let ci = 0; ci < conds.length; ci++) {
+                conditionsList.appendChild(buildConditionRow(conds[ci].expression, conds[ci].targetTaskId));
+            }
         }
 
         const rowIssues = document.getElementById('row-issues');
@@ -750,7 +1004,46 @@ const CLIENT_SCRIPT = /* javascript */ `
         const btnOpenSub = document.getElementById('btn-open-subprocess');
         btnOpenSub.hidden = !(a.kind === 'subprocess' && a.process);
 
+        // ── Formulário do processo ──────────────────────────────────
+        const rowForm = document.getElementById('row-form');
+        const propFormName = document.getElementById('prop-form-name');
+        if (MODEL.formName) {
+            propFormName.textContent = MODEL.formName;
+            rowForm.hidden = false;
+        } else {
+            rowForm.hidden = true;
+        }
+
         propertyPanel.classList.remove('panel-hidden');
+
+        // Atualizar label do role ao mudar mecanismo
+        mechanismSel.onchange = () => {
+            const isGrp = mechanismSel.value === 'Grupo' || mechanismSel.value === 'Pool Grupo';
+            lblRoleInput.textContent = isGrp ? 'Grupo' : 'Papel';
+            roleInput.placeholder    = isGrp ? 'id do grupo' : 'id do papel';
+        };
+    }
+
+    function buildConditionRow(expr, target) {
+        const row = document.createElement('div');
+        row.className = 'condition-row';
+        const exprInp   = document.createElement('input');
+        exprInp.className   = 'cond-expr field-input';
+        exprInp.placeholder = 'expressão JavaScript';
+        exprInp.value       = expr || '';
+        const targetInp = document.createElement('input');
+        targetInp.className   = 'cond-target field-input';
+        targetInp.placeholder = 'id da task alvo';
+        targetInp.value       = target || '';
+        const removeBtn = document.createElement('button');
+        removeBtn.className   = 'cond-remove';
+        removeBtn.textContent = '×';
+        removeBtn.title       = 'Remover condição';
+        removeBtn.onclick     = () => row.remove();
+        row.appendChild(exprInp);
+        row.appendChild(targetInp);
+        row.appendChild(removeBtn);
+        return row;
     }
 
     function hidePropertyPanel() {
@@ -778,20 +1071,52 @@ const CLIENT_SCRIPT = /* javascript */ `
 
     document.getElementById('btn-save-props').addEventListener('click', () => {
         if (!selectedActivity) return;
-        const patch = { id: selectedActivity.id };
+        const a = selectedActivity;
+        const id = a.id;
+
+        // Nome e script (patchActivity — patching cirúrgico como antes)
+        const patch = { id };
         const newName = document.getElementById('prop-name').value.trim();
-        if (newName !== (selectedActivity.label || '')) {
-            patch.name = newName;
-        }
-        if (selectedActivity.kind === 'service-task') {
+        if (newName !== (a.label || '')) { patch.name = newName; }
+        if (a.kind === 'service-task') {
             const newScript = document.getElementById('prop-script').value.trim();
-            if (newScript !== (selectedActivity.scriptFileName || '')) {
-                patch.scriptFileName = newScript;
-            }
+            if (newScript !== (a.scriptFileName || '')) { patch.scriptFileName = newScript; }
         }
         if (Object.keys(patch).length > 1) {
             vscode.postMessage({ type: 'patchActivity', patch });
         }
+
+        // Assignment (tasks/service-tasks)
+        const isTask = a.kind === 'task' || a.kind === 'service-task';
+        if (isTask) {
+            const mechanism = document.getElementById('prop-mechanism-select').value;
+            const roleVal   = document.getElementById('prop-role-input').value.trim();
+            const isGroup   = mechanism === 'Grupo' || mechanism === 'Pool Grupo';
+            const roleId    = isGroup ? undefined : (roleVal || undefined);
+            const groupId   = isGroup ? (roleVal || undefined) : undefined;
+            if (mechanism !== (a.managerMechanism || 'Papel') || roleVal !== (a.roleId || a.groupId || '')) {
+                vscode.postMessage({ type: 'updateAssignment', id, mechanism, roleId, groupId });
+            }
+            const newSla = document.getElementById('prop-sla').value.trim();
+            if (newSla !== (a.expediente || '')) {
+                vscode.postMessage({ type: 'updateSla', id, expediente: newSla });
+            }
+        }
+
+        // Gateway conditions
+        if (a.kind === 'gateway-exclusive') {
+            const rows = document.getElementById('conditions-list').querySelectorAll('.condition-row');
+            const conditions = Array.from(rows).map(row => ({
+                expression: row.querySelector('.cond-expr').value.trim(),
+                targetTaskId: row.querySelector('.cond-target').value.trim(),
+            })).filter(c => c.expression && c.targetTaskId);
+            vscode.postMessage({ type: 'updateConditions', id, conditions });
+        }
+    });
+
+    document.getElementById('btn-add-condition').addEventListener('click', () => {
+        const list = document.getElementById('conditions-list');
+        list.appendChild(buildConditionRow('', ''));
     });
 
     document.getElementById('btn-open-script').addEventListener('click', () => {
@@ -806,9 +1131,30 @@ const CLIENT_SCRIPT = /* javascript */ `
         }
     });
 
-    // Click on canvas background deselects
-    svg.addEventListener('click', () => {
+    document.getElementById('btn-open-form').addEventListener('click', () => {
+        if (MODEL.formName) {
+            vscode.postMessage({ type: 'openForm', formName: MODEL.formName });
+        }
+    });
+
+    // Click on canvas background: place node or deselect
+    svg.addEventListener('click', (e) => {
+        if (placingKind) {
+            const pos = clientToViewBox(e.clientX, e.clientY);
+            vscode.postMessage({ type: 'addNode', kind: placingKind,
+                name: PALETTE_LABELS[placingKind] || placingKind,
+                x: Math.round(pos.x), y: Math.round(pos.y) });
+            document.querySelectorAll('.palette-btn.active').forEach(b => b.classList.remove('active'));
+            placingKind = null;
+            wrapper.classList.remove('placing');
+            return;
+        }
         hidePropertyPanel();
+        if (selectedEdgeId) {
+            const prev = document.querySelector('[data-flow-id="' + selectedEdgeId + '"]');
+            if (prev) { prev.classList.remove('edge-selected'); }
+            selectedEdgeId = null;
+        }
     });
 
     // Wrap multi-line text
@@ -852,6 +1198,8 @@ const CLIENT_SCRIPT = /* javascript */ `
     // ── Pan & zoom ──────────────────────────────────────────────────────
     wrapper.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || e.target.closest('#property-panel')) return;
+        if (editMode && e.target.closest('.node')) return; // node handles its own drag
+        if (editMode && e.target.closest('.handle')) return;
         panning = true;
         panStart = { x: e.clientX, y: e.clientY, vbX: viewBox.x, vbY: viewBox.y };
         wrapper.classList.add('panning');
@@ -869,6 +1217,51 @@ const CLIENT_SCRIPT = /* javascript */ `
         panning = false;
         panStart = null;
         wrapper.classList.remove('panning');
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if (dragging) {
+            const rect = svg.getBoundingClientRect();
+            const scaleX = viewBox.width / rect.width;
+            const scaleY = viewBox.height / rect.height;
+            const dx = (e.clientX - dragging.startX) * scaleX;
+            const dy = (e.clientY - dragging.startY) * scaleY;
+            dragging.gEl.setAttribute('transform', 'translate(' + dx + ',' + dy + ')');
+        }
+        if (drawingConnection) {
+            const pos = clientToViewBox(e.clientX, e.clientY);
+            drawingConnection.tempLine.setAttribute('x2', String(pos.x));
+            drawingConnection.tempLine.setAttribute('y2', String(pos.y));
+        }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+        if (dragging) {
+            const { id, gEl, origX, origY, startX, startY } = dragging;
+            const rect = svg.getBoundingClientRect();
+            const scaleX = viewBox.width / rect.width;
+            const scaleY = viewBox.height / rect.height;
+            const newX = Math.round(origX + (e.clientX - startX) * scaleX);
+            const newY = Math.round(origY + (e.clientY - startY) * scaleY);
+            gEl.removeAttribute('transform');
+            dragging = null;
+            const moved = Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4;
+            if (moved) {
+                vscode.postMessage({ type: 'moveNode', id, x: newX, y: newY });
+            }
+        }
+        if (drawingConnection) {
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            const targetNode = target && target.closest('.node');
+            const targetId = targetNode ? targetNode.dataset.id : null;
+            if (targetId && targetId !== drawingConnection.sourceId) {
+                vscode.postMessage({ type: 'connectNodes',
+                    sourceId: drawingConnection.sourceId, targetId });
+            }
+            drawingConnection.tempLine.remove();
+            drawingConnection = null;
+            wrapper.classList.remove('drawing-conn');
+        }
     });
     wrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -890,6 +1283,64 @@ const CLIENT_SCRIPT = /* javascript */ `
                 if (e.key === 'Enter') document.getElementById('btn-save-props').click();
             });
         }
+    });
+
+    // ── Delete key ─────────────────────────────────────────────────
+    window.addEventListener('keydown', (e) => {
+        if (!editMode) { return; }
+        if (e.key !== 'Delete' && e.key !== 'Backspace') { return; }
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) { return; }
+        e.preventDefault();
+        if (selectedActivity) {
+            vscode.postMessage({ type: 'removeNode', id: selectedActivity.id });
+            hidePropertyPanel();
+        } else if (selectedEdgeId) {
+            vscode.postMessage({ type: 'disconnectFlow', flowId: selectedEdgeId });
+            const prev = document.querySelector('[data-flow-id="' + selectedEdgeId + '"]');
+            if (prev) { prev.classList.remove('edge-selected'); }
+            selectedEdgeId = null;
+        }
+    });
+
+    // ── Edit mode toggle ────────────────────────────────────────────
+    const toolbar = document.querySelector('.toolbar');
+    const btnEditMode = document.getElementById('btn-edit-mode');
+    btnEditMode.addEventListener('click', () => {
+        editMode = !editMode;
+        btnEditMode.classList.toggle('active', editMode);
+        btnEditMode.textContent = editMode ? '✎ Editar' : 'Editar';
+        toolbar.classList.toggle('edit-mode', editMode);
+        svg.classList.toggle('edit-mode', editMode);
+        if (!editMode) {
+            // Cancel all active states
+            placingKind = null;
+            wrapper.classList.remove('placing', 'drawing-conn');
+            document.querySelectorAll('.palette-btn.active').forEach(b => b.classList.remove('active'));
+            if (dragging) { dragging.gEl.removeAttribute('transform'); dragging = null; }
+            if (drawingConnection) { drawingConnection.tempLine.remove(); drawingConnection = null; }
+            if (selectedEdgeId) {
+                const prev = document.querySelector('[data-flow-id="' + selectedEdgeId + '"]');
+                if (prev) { prev.classList.remove('edge-selected'); }
+                selectedEdgeId = null;
+            }
+        }
+    });
+
+    // ── Palette buttons ─────────────────────────────────────────────
+    document.querySelectorAll('.palette-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const kind = btn.dataset.kind;
+            if (placingKind === kind) {
+                placingKind = null;
+                wrapper.classList.remove('placing');
+                btn.classList.remove('active');
+            } else {
+                document.querySelectorAll('.palette-btn.active').forEach(b => b.classList.remove('active'));
+                placingKind = kind;
+                wrapper.classList.add('placing');
+                btn.classList.add('active');
+            }
+        });
     });
 })();
 `;

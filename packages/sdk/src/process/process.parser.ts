@@ -16,7 +16,6 @@ import {
     splitFlows,
 } from './process.mapper';
 
-/** Tags do modelo bpmn2 que aparecem como filhos diretos de `xmi:XMI`. */
 const ARRAY_TAGS = new Set([
     'bpmn2:BpmnPool',
     'bpmn2:BpmnSwimLane',
@@ -47,7 +46,7 @@ interface RawNode {
 }
 
 /**
- * Parseia um arquivo `.process` Fluig.
+ * Parseia um arquivo `.process` Fluig e retorna um `ProcessDefinition`.
  *
  * @throws Se o XML for inválido ou se faltar a tag raiz `xmi:XMI` / `bpmn2:BpmnProcess`.
  */
@@ -67,7 +66,6 @@ export function parseProcess(xml: string): ProcessDefinition {
     const coordsByBusinessId = diagram ? extractCoordinatesMap(diagram) : new Map<string, Coordinates>();
 
     const metadata = buildMetadata(processNode);
-    // Capturar versão EMF do pi:Diagram para detecção de compatibilidade (Fase 11)
     if (diagram) {
         metadata.diagramVersion = attr(diagram as RawNode, 'version') ?? undefined;
     }
@@ -76,13 +74,7 @@ export function parseProcess(xml: string): ProcessDefinition {
     const activities = buildActivities(root, coordsByBusinessId);
     const transitions = buildTransitions(root);
 
-    return {
-        metadata,
-        pool,
-        activities,
-        transitions,
-        annotations,
-    };
+    return { metadata, pool, activities, transitions, annotations };
 }
 
 // ── Metadata ──────────────────────────────────────────────────────────────
@@ -160,7 +152,6 @@ function buildAnnotations(root: RawNode, coords: Map<string, Coordinates>): Proc
 
 // ── Extra attributes ──────────────────────────────────────────────────────
 
-/** Coleta atributos não-excluídos de um nó parsed, para preservação de round-trip. */
 function collectExtra(node: RawNode, excluded: Set<string>): Record<string, string> | undefined {
     const result: Record<string, string> = {};
     for (const key of Object.keys(node)) {
@@ -174,7 +165,6 @@ function collectExtra(node: RawNode, excluded: Set<string>): Record<string, stri
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
-/** Atributos já capturados explicitamente no modelo — excluídos de extraAttributes. */
 const KNOWN_ATTRS: Record<string, Set<string>> = {
     BpmnTask: new Set(['id', 'name', 'type', 'incoming', 'outgoing',
         'managerMechanism', 'managerAssignmentControllerString', 'scriptFileName']),
@@ -193,7 +183,6 @@ function extractExtraAttributes(tag: string, node: RawNode): Record<string, stri
 
 function buildActivities(root: RawNode, coords: Map<string, Coordinates>): ProcessActivity[] {
     const out: ProcessActivity[] = [];
-
     const tagsToProcess: { tag: string; key: string }[] = [
         { tag: 'BpmnStartEvent', key: 'bpmn2:BpmnStartEvent' },
         { tag: 'BpmnEndEvent', key: 'bpmn2:BpmnEndEvent' },
@@ -202,7 +191,6 @@ function buildActivities(root: RawNode, coords: Map<string, Coordinates>): Proce
         { tag: 'BpmnIntermediateEvent', key: 'bpmn2:BpmnIntermediateEvent' },
         { tag: 'BpmnSubProcess', key: 'bpmn2:BpmnSubProcess' },
     ];
-
     for (const { tag, key } of tagsToProcess) {
         for (const node of asArray<RawNode>(root[key])) {
             const activity = buildActivity(tag, node, coords);
@@ -211,7 +199,6 @@ function buildActivities(root: RawNode, coords: Map<string, Coordinates>): Proce
             }
         }
     }
-
     return out;
 }
 
@@ -221,12 +208,10 @@ function buildActivity(tag: string, node: RawNode, coords: Map<string, Coordinat
     const typeCode = parseInt(attr(node, 'type') ?? '0', 10) || 0;
     const incoming = splitFlows(attr(node, 'incoming'));
     const outgoing = splitFlows(attr(node, 'outgoing'));
-
     const kind = decodeTypeCode(tag, typeCode);
     if (!kind) {
         return null;
     }
-
     const extraAttributes = extractExtraAttributes(tag, node);
     const base = { id, name, typeCode, coords: coords.get(id), incoming, outgoing, extraAttributes };
 
@@ -241,7 +226,6 @@ function buildActivity(tag: string, node: RawNode, coords: Map<string, Coordinat
             rawAssignmentXml: attr(node, 'managerAssignmentControllerString'),
         };
     }
-
     if (kind === 'gateway-exclusive') {
         return {
             ...base,
@@ -250,7 +234,6 @@ function buildActivity(tag: string, node: RawNode, coords: Map<string, Coordinat
             rawConditionXml: attr(node, 'condition'),
         };
     }
-
     if (
         kind === 'intermediate-link-throw' ||
         kind === 'intermediate-link-receive' ||
@@ -263,16 +246,9 @@ function buildActivity(tag: string, node: RawNode, coords: Map<string, Coordinat
             parentTask: attr(node, 'parentTask'),
         };
     }
-
     if (kind === 'subprocess') {
-        return {
-            ...base,
-            kind,
-            process: attr(node, 'process'),
-        };
+        return { ...base, kind, process: attr(node, 'process') };
     }
-
-    // start / end / end-cancel
     return { ...base, kind };
 }
 
@@ -290,10 +266,6 @@ function buildTransitions(root: RawNode): ProcessTransition[] {
 
 // ── Pictogram coordinates ─────────────────────────────────────────────────
 
-/**
- * Varre o `pi:Diagram` recursivamente coletando coordenadas indexadas pelo
- * id do business object (via `<link businessObjects="..."/>`).
- */
 function extractCoordinatesMap(diagram: RawNode): Map<string, Coordinates> {
     const map = new Map<string, Coordinates>();
     walkPictogram(diagram, map);
@@ -305,21 +277,14 @@ function walkPictogram(node: unknown, map: Map<string, Coordinates>): void {
         return;
     }
     const obj = node as RawNode;
-
     const link = obj.link as RawNode | undefined;
     const businessId = link ? attr(link, 'businessObjects') : undefined;
     if (businessId) {
         const coords = readCoordinates(obj);
-        if (coords) {
-            // Coordenadas podem aparecer várias vezes para o mesmo id (forma + texto).
-            // A primeira ocorrência costuma ser a forma principal.
-            if (!map.has(businessId)) {
-                map.set(businessId, coords);
-            }
+        if (coords && !map.has(businessId)) {
+            map.set(businessId, coords);
         }
     }
-
-    // Recursão em children/connections aninhados.
     for (const child of asArray<unknown>(obj.children)) {
         walkPictogram(child, map);
     }
@@ -333,9 +298,6 @@ function readCoordinates(node: RawNode): Coordinates | undefined {
     if (!ga) {
         return undefined;
     }
-    // `graphicsAlgorithm` pode aninhar um `graphicsAlgorithmChildren` quando
-    // o elemento tem uma forma interna (ex.: gateways desenham um Polygon dentro do Rectangle).
-    // A largura/altura úteis ficam no nível externo.
     const x = parseFloat(attr(ga, 'x') ?? '0');
     const y = parseFloat(attr(ga, 'y') ?? '0');
     const width = parseFloat(attr(ga, 'width') ?? '0');
@@ -359,12 +321,6 @@ function attr(node: RawNode, name: string): string | undefined {
     return decodeXmlEntities(String(value));
 }
 
-/**
- * Decodifica references de caracteres XML (`&#xe7;`, `&#231;`) e as entidades
- * nomeadas básicas. O fast-xml-parser v5 não decodifica numeric refs em
- * valores de atributo por padrão, e o `.process` Fluig é serializado como
- * ASCII com caracteres não-ASCII expressos via `&#xNN;`.
- */
 function decodeXmlEntities(s: string): string {
     if (!s.includes('&')) {
         return s;

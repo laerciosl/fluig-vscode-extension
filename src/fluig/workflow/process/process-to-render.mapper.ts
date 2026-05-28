@@ -23,11 +23,15 @@ export interface RenderNode {
     scriptFileName?: string;
     /** Para subprocess: id do processo filho. */
     process?: string;
-    /** Mecanismo de atribuição (para tooltip). */
+    /** Mecanismo de atribuição (para tooltip e painel de propriedades). */
     managerMechanism?: string;
-    /** Papel ou grupo associado (para tooltip). */
+    /** Papel ou grupo associado. */
     roleId?: string;
     groupId?: string;
+    /** Condições de saída de gateway (para painel de propriedades). */
+    conditions?: Array<{ order: number; expression: string; targetTaskId: string }>;
+    /** SLA/expediente (para painel de propriedades). */
+    expediente?: string;
 }
 
 export type NodeKind = ActivityKind | 'pool' | 'swimlane' | 'annotation';
@@ -49,6 +53,8 @@ export interface RenderModel {
     processId: string;
     processName: string;
     processVersion: string;
+    /** Nome do formulário principal vinculado (`cardIndex`), se definido. */
+    formName?: string;
     /** Bounding box útil para o SVG (com padding). */
     viewBox: { x: number; y: number; width: number; height: number };
     pools: RenderNode[];
@@ -130,6 +136,7 @@ export function buildRenderModel(def: ProcessDefinition): RenderModel {
         processId: def.metadata.id,
         processName: def.metadata.name,
         processVersion: def.metadata.version,
+        formName: def.metadata.cardIndex,
         viewBox,
         pools,
         swimlanes,
@@ -169,6 +176,12 @@ function activityToNode(activity: ProcessActivity): RenderNode {
         node.managerMechanism = t.managerMechanism;
         node.roleId = t.assignment?.roleId;
         node.groupId = t.assignment?.groupId;
+        node.expediente = t.extraAttributes?.expediente;
+    }
+
+    if (activity.kind === 'gateway-exclusive') {
+        const g = activity as import('./process.types').ProcessGatewayActivity;
+        node.conditions = g.conditions;
     }
 
     if (activity.kind === 'subprocess') {
