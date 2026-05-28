@@ -478,6 +478,102 @@ async function saveMechanismFile(
 
 // ── Remote content for diff ────────────────────────────────────────────────
 
+// ── 7.4 — Deploy seletivo de eventos ─────────────────────────────────────
+
+export async function deploySelectedWorkflowEvents(): Promise<void> {
+    const server = await getSelect();
+    if (!server) { return; }
+
+    const eventsFolderUri = Uri.joinPath(getWorkspaceUri(), 'workflow', 'scripts');
+
+    const allFiles = glob.sync(`${eventsFolderUri.fsPath}/*.*.js`);
+    if (allFiles.length === 0) {
+        window.showInformationMessage('Nenhum evento encontrado em workflow/scripts/.');
+        return;
+    }
+
+    const processIds = [...new Set(
+        allFiles.map(f => basename(f).replace(/\..*$/, ''))
+    )].sort();
+
+    let processId: string;
+    if (processIds.length === 1) {
+        processId = processIds[0];
+    } else {
+        const picked = await window.showQuickPick(processIds, { placeHolder: 'Selecione o processo' });
+        if (!picked) { return; }
+        processId = picked;
+    }
+
+    const selectedEvents = await pickWorkflowEvents(processId);
+    if (!selectedEvents.length) { return; }
+
+    const cookies = await loginAndGetCookies(server);
+    try {
+        await validateServerHasFluiggersWidget(server, cookies);
+    } catch (error: any) {
+        window.showErrorMessage(error.message || error);
+        return;
+    }
+
+    const lastVersion = await apiGetLastWorkflowVersion(server, processId);
+    if (lastVersion === 0) {
+        window.showErrorMessage('Processo não encontrado no servidor Fluig.');
+        return;
+    }
+
+    const versionInput = await window.showInputBox({
+        prompt: `Versão do processo a atualizar (última: ${lastVersion})`,
+        value: lastVersion.toString(),
+    });
+    const versionToUpdate = parseInt(versionInput || '0');
+    if (!versionToUpdate) { return; }
+
+    if (server.confirmExporting && !(await confirmPassword(server))) { return; }
+
+    log.info(`Deploy seletivo: ${selectedEvents.length} evento(s) de "${processId}" → ${server.name}`);
+
+    try {
+        const response = await apiUpdateWorkflowEvents(
+            server,
+            processId,
+            versionToUpdate,
+            buildEventsPayload(selectedEvents)
+        );
+        if (!response.hasError) {
+            selectedEvents.forEach(e =>
+                emitSuccess({
+                    kind: 'workflow',
+                    operation: 'export',
+                    name: e.label,
+                    serverName: server.name,
+                    uri: Uri.file(e.path),
+                    silent: true,
+                })
+            );
+            window.showInformationMessage(`${selectedEvents.length} evento(s) exportado(s) com sucesso.`);
+        } else {
+            selectedEvents.forEach(e =>
+                emitError({
+                    kind: 'workflow',
+                    operation: 'export',
+                    name: e.label,
+                    serverName: server.name,
+                    uri: Uri.file(e.path),
+                    error: response.errors.join('\n'),
+                    silent: true,
+                })
+            );
+            window.showWarningMessage('Erros ao exportar eventos', {
+                detail: response.errors.join('\n'),
+                modal: true,
+            });
+        }
+    } catch (error: any) {
+        window.showErrorMessage(`Falha no deploy seletivo: ${error.message || String(error)}`);
+    }
+}
+
 export async function getMechanismContent(server: ServerDTO, mechanismId: string): Promise<string> {
     const mechanisms = await getMechanisms(server);
     const m = mechanisms.find(m => m.attributionMecanismPK.attributionMecanismId === mechanismId);

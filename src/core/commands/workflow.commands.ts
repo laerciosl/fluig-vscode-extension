@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { basename } from 'path';
 import { createWorkflowEvent, createMechanism } from '../generators/workflow.generator';
+import { runWorkflowEventLocally } from '../../fluig/runtime/runtime.service';
 import {
     updateWorkflowEvents,
     importMechanism,
     importManyMechanisms,
     exportMechanism,
+    deploySelectedWorkflowEvents,
 } from '../../fluig/workflow/workflow.service';
 import { WorkflowProvider, WorkflowEventItem, WorkflowProcessItem } from '../providers/workflow.provider';
 import { getRuntime } from '../runtime-state';
@@ -59,6 +61,23 @@ export function registerWorkflowCommands(context: vscode.ExtensionContext): void
                     return;
                 }
                 updateWorkflowEvents(fileUri);
+            }
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.selectiveDeployWorkflow',
+            deploySelectedWorkflowEvents
+        ),
+        vscode.commands.registerCommand(
+            'fluiggers-fluig-vscode-extension.runWorkflowEventLocally',
+            (fileUri: vscode.Uri) => {
+                const uri = fileUri instanceof vscode.Uri
+                    ? fileUri
+                    : vscode.window.activeTextEditor?.document.uri;
+                if (!uri) {
+                    vscode.window.showErrorMessage('Nenhum evento de workflow selecionado.');
+                    return;
+                }
+                runWorkflowEventLocally(uri);
             }
         ),
         vscode.commands.registerCommand(

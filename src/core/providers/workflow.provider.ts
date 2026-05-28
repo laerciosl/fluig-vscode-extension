@@ -5,13 +5,39 @@ import { getWorkspaceUri } from '../workspace.utils';
 export class WorkflowProcessItem extends vscode.TreeItem {
     constructor(
         public readonly processId: string,
-        public readonly eventCount: number
+        public readonly eventCount: number,
+        public readonly processFilePath?: string
     ) {
         super(processId, vscode.TreeItemCollapsibleState.Collapsed);
-        this.description = `${eventCount} evento(s)`;
-        this.iconPath = new vscode.ThemeIcon('git-merge');
-        this.contextValue = 'fluigWorkflowProcess';
-        this.tooltip = processId;
+        const parts: string[] = [];
+        if (processFilePath) {
+            parts.push('.process');
+        }
+        parts.push(`${eventCount} evento(s)`);
+        this.description = parts.join(' · ');
+        this.iconPath = new vscode.ThemeIcon(processFilePath ? 'git-merge' : 'warning');
+        this.contextValue = processFilePath ? 'fluigWorkflowProcessWithFile' : 'fluigWorkflowProcess';
+        this.tooltip = processFilePath
+            ? `${processId}\n${processFilePath}`
+            : `${processId} (sem .process local)`;
+    }
+}
+
+export class WorkflowProcessFileItem extends vscode.TreeItem {
+    constructor(
+        public readonly processId: string,
+        public readonly filePath: string
+    ) {
+        super(`${processId}.process`, vscode.TreeItemCollapsibleState.None);
+        this.iconPath = new vscode.ThemeIcon('preview');
+        this.contextValue = 'fluigWorkflowProcessFile';
+        this.resourceUri = vscode.Uri.file(filePath);
+        this.command = {
+            command: 'fluiggers-fluig-vscode-extension.previewProcess',
+            title: 'Visualizar Workflow',
+            arguments: [vscode.Uri.file(filePath)],
+        };
+        this.tooltip = `Clique para visualizar o workflow\n${filePath}`;
     }
 }
 
@@ -34,18 +60,19 @@ export class WorkflowEventItem extends vscode.TreeItem {
     }
 }
 
-type TreeNode = WorkflowProcessItem | WorkflowEventItem | vscode.TreeItem;
+type TreeNode = WorkflowProcessItem | WorkflowEventItem | WorkflowProcessFileItem | vscode.TreeItem;
 
 export class WorkflowProvider implements vscode.TreeDataProvider<TreeNode> {
     private readonly _onChange = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onChange.event;
 
     private processes: Map<string, { event: string; path: string }[]> = new Map();
-    private watcher: vscode.FileSystemWatcher | undefined;
+    private processFiles: Map<string, string> = new Map();
+    private watchers: vscode.FileSystemWatcher[] = [];
 
     constructor() {
         this.scan();
-        this.startWatcher();
+        this.startWatchers();
     }
 
     getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -57,7 +84,7 @@ export class WorkflowProvider implements vscode.TreeDataProvider<TreeNode> {
             return this.buildRoot();
         }
         if (element instanceof WorkflowProcessItem) {
-            return this.buildEvents(element.processId);
+            return this.buildChildren(element.processId);
         }
         return [];
     }
@@ -67,25 +94,42 @@ export class WorkflowProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     dispose(): void {
-        this.watcher?.dispose();
+        for (const w of this.watchers) {
+            w.dispose();
+        }
+        this.watchers.length = 0;
         this._onChange.dispose();
     }
 
     private buildRoot(): TreeNode[] {
-        if (!this.processes.size) {
-            const hint = new vscode.TreeItem('Nenhum processo encontrado em workflow/scripts/', vscode.TreeItemCollapsibleState.None);
+        const allProcessIds = new Set<string>([
+            ...this.processes.keys(),
+            ...this.processFiles.keys(),
+        ]);
+        if (allProcessIds.size === 0) {
+            const hint = new vscode.TreeItem('Nenhum processo encontrado em workflow/', vscode.TreeItemCollapsibleState.None);
             hint.iconPath = new vscode.ThemeIcon('info');
             return [hint];
         }
-        return Array.from(this.processes.entries())
-            .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
-            .map(([id, events]) => new WorkflowProcessItem(id, events.length));
+        return Array.from(allProcessIds)
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+            .map(id => new WorkflowProcessItem(
+                id,
+                (this.processes.get(id) ?? []).length,
+                this.processFiles.get(id)
+            ));
     }
 
-    private buildEvents(processId: string): WorkflowEventItem[] {
-        return (this.processes.get(processId) || [])
+    private buildChildren(processId: string): TreeNode[] {
+        const children: TreeNode[] = [];
+        const processFile = this.processFiles.get(processId);
+        if (processFile) {
+            children.push(new WorkflowProcessFileItem(processId, processFile));
+        }
+        const events = (this.processes.get(processId) || [])
             .sort((a, b) => a.event.localeCompare(b.event, 'pt-BR'))
             .map(e => new WorkflowEventItem(processId, e.event, e.path));
+        return [...children, ...events];
     }
 
     private scan(): void {
@@ -109,22 +153,45 @@ export class WorkflowProvider implements vscode.TreeDataProvider<TreeNode> {
             }
 
             this.processes = byProcess;
+
+            const workflowFolder = vscode.Uri.joinPath(getWorkspaceUri(), 'workflow').fsPath;
+            const processFiles = glob.sync(`${workflowFolder}/*.process`, { nodir: true });
+            const byProcessFile = new Map<string, string>();
+            for (const filePath of processFiles) {
+                const fileName = filePath.split(/[/\\]/).pop() ?? '';
+                const processId = fileName.replace(/\.process$/, '');
+                if (processId) {
+                    byProcessFile.set(processId, filePath);
+                }
+            }
+            this.processFiles = byProcessFile;
         } catch {
             this.processes = new Map();
+            this.processFiles = new Map();
         }
         this._onChange.fire();
     }
 
-    private startWatcher(): void {
+    private startWatchers(): void {
         try {
-            const pattern = new vscode.RelativePattern(
+            const scriptsPattern = new vscode.RelativePattern(
                 vscode.Uri.joinPath(getWorkspaceUri(), 'workflow', 'scripts'),
                 '*.*.js'
             );
-            this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
-            this.watcher.onDidCreate(() => this.scan());
-            this.watcher.onDidDelete(() => this.scan());
-            this.watcher.onDidChange(() => this.scan());
+            const scriptsWatcher = vscode.workspace.createFileSystemWatcher(scriptsPattern);
+            scriptsWatcher.onDidCreate(() => this.scan());
+            scriptsWatcher.onDidDelete(() => this.scan());
+            scriptsWatcher.onDidChange(() => this.scan());
+
+            const processPattern = new vscode.RelativePattern(
+                vscode.Uri.joinPath(getWorkspaceUri(), 'workflow'),
+                '*.process'
+            );
+            const processWatcher = vscode.workspace.createFileSystemWatcher(processPattern);
+            processWatcher.onDidCreate(() => this.scan());
+            processWatcher.onDidDelete(() => this.scan());
+
+            this.watchers = [scriptsWatcher, processWatcher];
         } catch {
             // workspace may not be available in tests
         }

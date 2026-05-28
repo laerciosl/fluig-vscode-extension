@@ -50,6 +50,27 @@
 				"category": "Fluig"
 			},
 			{
+				"command": "fluiggers-fluig-vscode-extension.showDeployHistory",
+				"title": "Ver Histórico de Deploys",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.undoLastDeploy",
+				"title": "Desfazer Último Deploy",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.selectiveDeployWorkflow",
+				"title": "Deploy Seletivo de Eventos de Workflow",
+				"category": "Fluig"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.runWorkflowEventLocally",
+				"title": "Executar Evento Localmente",
+				"category": "Fluig",
+				"icon": "$(run)"
+			},
+			{
 				"command": "fluiggers-fluig-vscode-extension.refreshDomainGroup",
 				"title": "Atualizar",
 				"category": "Fluig",
@@ -332,6 +353,18 @@
 			{
 				"command": "fluiggers-fluig-vscode-extension.selectServer",
 				"title": "Fluig: Selecionar Servidor"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.previewProcess",
+				"title": "Fluig: Visualizar Workflow"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.validateProcess",
+				"title": "Fluig: Validar Processo"
+			},
+			{
+				"command": "fluiggers-fluig-vscode-extension.diffProcessWithGit",
+				"title": "Fluig: Comparar Processo com HEAD (Git)"
 			}
 		],
 		"menus": {
@@ -394,6 +427,11 @@
 				}
 			],
 			"explorer/context": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.previewProcess",
+					"when": "resourceExtname == .process",
+					"group": "1_Fluig4Workflow@0"
+				},
 				{
 					"command": "fluiggers-fluig-vscode-extension.newDataset",
 					"group": "1_Fluig1Dataset@1"
@@ -475,6 +513,11 @@
 					"group": "1_Fluig4Workflow@2"
 				},
 				{
+					"command": "fluiggers-fluig-vscode-extension.runWorkflowEventLocally",
+					"when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
+					"group": "1_Fluig4Workflow@3"
+				},
+				{
 					"command": "fluiggers-fluig-vscode-extension.exportMechanism",
 					"when": "resourcePath =~ /[\\/\\\\]mechanisms[\\/\\\\].+$/",
 					"group": "1_Fluig4Workflow@3"
@@ -523,6 +566,11 @@
 					"command": "fluiggers-fluig-vscode-extension.diffWorkflowEvent",
 					"when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
 					"group": "1_Fluig4Workflow@0"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffProcessWithGit",
+					"when": "resourceExtname == .process",
+					"group": "1_Fluig4Workflow@1"
 				}
 			],
 			"view/title": [
@@ -675,6 +723,23 @@
 					"when": "view == fluiggers-fluig-vscode-extension.servers && viewItem =~ /^serverItem/",
 					"group": "3_library@1"
 				}
+			],
+			"editor/title": [
+				{
+					"command": "fluiggers-fluig-vscode-extension.previewProcess",
+					"when": "resourceLangId == fluig-process",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.diffProcessWithGit",
+					"when": "resourceLangId == fluig-process",
+					"group": "navigation"
+				},
+				{
+					"command": "fluiggers-fluig-vscode-extension.runWorkflowEventLocally",
+					"when": "resourcePath =~ /[\\/\\\\]workflow[\\/\\\\]scripts[\\/\\\\].+\\.js$/",
+					"group": "navigation"
+				}
 			]
 		},
 		"keybindings": [
@@ -792,6 +857,17 @@
 				"extensions": [
 					".ftl"
 				]
+			},
+			{
+				"id": "fluig-process",
+				"aliases": [
+					"Fluig Process",
+					"fluig-process"
+				],
+				"extensions": [
+					".process"
+				],
+				"configuration": "./language/fluig-process.json"
 			}
 		],
 		"snippets": [
@@ -896,5 +972,8 @@
 	},
 	"overrides": {
 		"yauzl": "^3.2.1"
+	},
+	"dependencies": {
+		"fast-xml-parser": "^5.8.0"
 	}
 }

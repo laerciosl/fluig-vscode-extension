@@ -12,6 +12,7 @@ import { registerGlobalEventCommands } from './core/commands/global-event.comman
 import { registerServerCommands } from './core/commands/server.commands';
 import { registerWatchMode } from './core/watch';
 import { registerStatusBar } from './core/status-bar';
+import { registerProcessCommands } from './core/commands/process.commands';
 import { SyncDecorationProvider } from './core/file-decoration';
 import { FluigRemoteContentProvider, REMOTE_SCHEME, registerContentFetcher } from './core/diff-provider';
 import { getDatasetContent } from './fluig/datasets/dataset.service';
@@ -21,6 +22,7 @@ import { registerRuntimeCommands } from './core/commands/runtime.commands';
 import { RuntimeState, initRuntime } from './core/runtime-state';
 import { createLogger, initLogger, disposeLogger } from './core/logger';
 import { onArtifactSuccess, onArtifactError, disposeEventBus } from './core/event-bus';
+import { pushDeployRecord } from './core/deploy-history';
 
 export async function activate(context: ExtensionContext): Promise<void> {
     const runtime = new RuntimeState();
@@ -96,6 +98,16 @@ export async function activate(context: ExtensionContext): Promise<void> {
             if (!e.silent) {
                 window.showInformationMessage(`${e.name} ${verb.toLowerCase()} com sucesso!`);
             }
+            if (e.operation === 'export') {
+                pushDeployRecord({
+                    timestamp: new Date(),
+                    artifactName: e.name,
+                    kind: e.kind,
+                    serverName: e.serverName,
+                    status: 'success',
+                    fsPath: e.uri?.fsPath,
+                });
+            }
         }),
         onArtifactError(e => {
             const verb = e.operation === 'export' ? 'exportar' : 'importar';
@@ -103,6 +115,17 @@ export async function activate(context: ExtensionContext): Promise<void> {
             if (e.uri) { runtime.markError(e.uri); }
             if (!e.silent) {
                 window.showErrorMessage(`Falha ao ${verb} ${e.name}: ${e.error}`);
+            }
+            if (e.operation === 'export') {
+                pushDeployRecord({
+                    timestamp: new Date(),
+                    artifactName: e.name,
+                    kind: e.kind,
+                    serverName: e.serverName,
+                    status: 'error',
+                    fsPath: e.uri?.fsPath,
+                    error: e.error,
+                });
             }
         }),
 
@@ -119,6 +142,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
     await registerServerCommands(context);
     registerWatchMode(context);
     registerStatusBar(context);
+    registerProcessCommands(context);
     registerRuntimeCommands(context);
 }
 

@@ -53,6 +53,10 @@ export function showLogger(): void {
     getChannel().show(true);
 }
 
+export function appendToOutputChannel(line: string): void {
+    getChannel().appendLine(line);
+}
+
 export function disposeLogger(): void {
     channel?.dispose();
     channel = undefined;
