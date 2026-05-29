@@ -5,7 +5,8 @@
 const path = require('path');
 
 /**@type {import('webpack').Configuration}*/
-const config = {
+const extensionConfig = {
+  name: 'extension',
   target: 'node', // vscode extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
 	mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 
@@ -43,4 +44,37 @@ const config = {
     ]
   }
 };
-module.exports = config;
+
+/**@type {import('webpack').Configuration}*/
+const bpmnEditorConfig = {
+  name: 'bpmnEditor',
+  target: 'web',
+  mode: 'none',
+  entry: './src/core/views/bpmn/webview-entry.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist', 'views'),
+    filename: 'bpmn-editor.js',
+  },
+  devtool: 'nosources-source-map',
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              configFile: 'tsconfig.bpmn-editor.json',
+            },
+          },
+        ],
+      },
+    ],
+  },
+};
+
+module.exports = [extensionConfig, bpmnEditorConfig];

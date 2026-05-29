@@ -6,5 +6,8 @@
     "include": [
         "src",
         "packages/sdk/src"
+    ],
+    "exclude": [
+        "src/core/views/bpmn"
     ]
 }

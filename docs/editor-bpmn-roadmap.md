@@ -135,7 +135,7 @@ Cada sprint deixa a extensão funcionando (atrás do flag até o cutover).
 - [x] DI das lanes corrigido para absoluto (coords de lane são relativas ao pool no Graphiti).
 - [x] **Badges de validação + tooltips** via API de `overlays` (paridade com o SVG; sem custom renderer). Reaplicados a cada re-import.
 - [x] **Tuning leve de labels** — `textRenderer` (Arial; 11px internos, 10px externos) + halo branco via CSS (`paint-order: stroke`) nos `.djs-label`, pra legibilidade sobre as arestas. Sem empacotar.
-- [ ] **Em andamento — render custom de FORMAS:** exige empacotar o bpmn-js (entry webpack `web` + mover o script inline pra módulo TS + `BaseRenderer`). Ícones de tipo (service-task/link/error) **já são desenhados** pelo bpmn-js nativo.
+- [x] **Render custom de FORMAS** — bpmn-js empacotado (segundo entry webpack `web` em `dist/views/bpmn-editor.js`); `BPMN_CLIENT_SCRIPT` inline movido pra `src/core/views/bpmn/webview-entry.ts`; `FluigRenderer` (subclasse de `BaseRenderer`, priority 1500) normaliza tamanhos canônicos (task 100×80, subprocess 110×90, gateway 50×50, eventos 36×36) recentralizando, e delega ao `bpmnRenderer` (mantém ícones de service-task/link/error). Bounds originais do `.process` ficam intactos — só a apresentação é normalizada. Gulp deixou de copiar o UMD `bpmn-modeler.production.min.js`.
 - [x] **Append corrigido** — `addNode` envia `tempId`; o host responde `nodeCreated{tempId, fluigId}`; o webview segura a conexão pendente e posta `connectNodes` quando o id Fluig chega (cobre cadeias de append).
 - [x] **Debounce de save** — ops de edição aplicam em `currentXml` em memória (síncrono, sem race de re-parse) e um único `commit` (write + refresh) roda após ~120ms de quietude. Beneficia svg e bpmn; o append ficou mais rápido (o `nodeCreated` não espera mais o round-trip do disco). Flush no `dispose` pra não perder edição pendente.
 - [ ] **Backlog (decisão do usuário):** tornar `bpmn` o engine padrão e aposentar o SVG — só após aprovação visual.
@@ -163,5 +163,5 @@ Cada sprint deixa a extensão funcionando (atrás do flag até o cutover).
 - **Sprint 3 implementado** — edição de propriedades persiste e o diagrama não "pula" mais ao salvar (update incremental via `postMessage`, viewbox + seleção preservados).
 - **Sprint 4 implementado** — arrastar nós persiste a posição via `moveNode`.
 - **Sprint 5 implementado** — paleta/context-pad reativados; criar/conectar/deletar persistem via ProcessGraph.
-- **Sprint 6** — lanes (flowNodeRefs + DI absoluto), badges de validação/tooltips (overlays), append corrigido e debounce de save feitos. Render custom de formas/labels precisa empacotar o bpmn-js (entry webpack) e o cutover seguem no backlog.
+- **Sprint 6** — lanes (flowNodeRefs + DI absoluto), badges de validação/tooltips (overlays), append corrigido, debounce de save e **render custom de formas** (FluigRenderer + bundle webpack `web`) feitos. Só o cutover (engine `bpmn` como default) segue no backlog.
 - Estado: engine `bpmn` é funcional atrás do flag (`fluiggers.workflowPreview.engine = bpmn`); default continua `svg`. Falta verificação visual acumulada das sprints.

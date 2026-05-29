@@ -267,6 +267,25 @@ export class ProcessGraph {
     }
 
     /**
+     * Atualiza o texto (campo `name`) de uma BpmnAnnotation.
+     * Patcha o atributo na business layer e o `value="..."` do al:MultiText no
+     * rawXml do EMF — mesmo padrão de renameNode para atividades.
+     */
+    updateAnnotation(id: string, text: string): void {
+        const annotation = this._def.annotations.find(a => a.id === id);
+        if (annotation) {
+            (annotation as { name: string }).name = text;
+        }
+        const shape = this._emf.shapes.find(s => s.businessId === id);
+        if (shape) {
+            shape.rawXml = shape.rawXml.replace(
+                /(<graphicsAlgorithm[^>]*xsi:type="al:MultiText"[^>]*)value="[^"]*"/,
+                `$1value="${escapeForXml(text)}"`
+            );
+        }
+    }
+
+    /**
      * Atualiza o SLA (expediente) de uma atividade.
      * O valor é armazenado em extraAttributes.expediente.
      */

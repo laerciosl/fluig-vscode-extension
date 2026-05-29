@@ -110,14 +110,9 @@ function buildHtml5Sortable(cb) {
 }
 
 function buildBpmnJs(cb) {
-    // Bundles UMD (expõem window.BpmnJS); carregados um por vez no webview.
-    src([
-        'node_modules/bpmn-js/dist/bpmn-modeler.production.min.js',
-        'node_modules/bpmn-js/dist/bpmn-navigated-viewer.production.min.js',
-    ])
-    .pipe(dest(`${destFolder}/libs/bpmn`));
-
-    // CSS do canvas + ícones (font embutida em base64, sem URL externa → ok com CSP).
+    // O JS do Modeler agora é empacotado pelo webpack (entry bpmnEditor → dist/views/bpmn-editor.js)
+    // junto com o FluigRenderer custom. Aqui só copiamos o CSS do canvas + ícones (font
+    // embutida em base64, sem URL externa → ok com CSP).
     src([
         'node_modules/bpmn-js/dist/assets/diagram-js.css',
         'node_modules/bpmn-js/dist/assets/bpmn-js.css',

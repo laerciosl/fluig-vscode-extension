@@ -18,6 +18,10 @@ import type {
     ActivityKind,
 } from './process.types';
 import type { EmfDiagram } from './process.emf-model';
+import {
+    CANONICAL_ACTIVITY_BOUNDS,
+    CANONICAL_ANNOTATION_BOUNDS,
+} from './process-canonical-bounds';
 
 interface Point { x: number; y: number; }
 
@@ -279,11 +283,23 @@ function serializeDi(
             );
         }
     }
-    for (const a of def.activities) { pushShape(a.id, a.coords, { color: NODE_COLORS[a.kind] }); }
-    for (const an of def.annotations) { pushShape(an.id, an.coords); }
 
-    const coordsById = new Map<string, Coordinates>();
-    for (const a of def.activities) { if (a.coords) { coordsById.set(a.id, a.coords); } }
+    // Atividades e anotações: emite bounds CANÔNICOS centrados no centro original
+    // (alinha com o bpmn-js sem precisar de mutation no FluigRenderer; conexões
+    // projetam corretamente porque o mesmo bound canônico é usado em projectToBorder).
+    // moveNode no host faz a operação inversa pra escrever de volta no `.process`.
+    const canonicalById = new Map<string, Coordinates>();
+    for (const a of def.activities) {
+        const canonical = toCanonical(a.coords, CANONICAL_ACTIVITY_BOUNDS[a.kind]);
+        if (canonical) { canonicalById.set(a.id, canonical); }
+        pushShape(a.id, canonical, { color: NODE_COLORS[a.kind] });
+    }
+    for (const an of def.annotations) {
+        const canonical = toCanonical(an.coords, CANONICAL_ANNOTATION_BOUNDS);
+        pushShape(an.id, canonical);
+    }
+
+    const coordsById = canonicalById;
 
     const edges: string[] = [];
     for (const t of def.transitions) {
@@ -342,6 +358,27 @@ function buildBendpointMap(emf?: EmfDiagram): Map<string, Point[]> {
 
 function centerOf(c: Coordinates): Point {
     return { x: c.x + c.width / 2, y: c.y + c.height / 2 };
+}
+
+/**
+ * Converte um bound do `.process` (Graphiti) para bound canônico (BPMN/bpmn.io),
+ * preservando o centro. Se não houver bound canônico ou bound original, retorna
+ * o próprio original.
+ */
+function toCanonical(
+    c: Coordinates | undefined,
+    canonical: { width: number; height: number } | undefined
+): Coordinates | undefined {
+    if (!c) { return undefined; }
+    if (!canonical) { return c; }
+    const cx = c.x + c.width / 2;
+    const cy = c.y + c.height / 2;
+    return {
+        x: Math.round(cx - canonical.width / 2),
+        y: Math.round(cy - canonical.height / 2),
+        width: canonical.width,
+        height: canonical.height,
+    };
 }
 
 /**
