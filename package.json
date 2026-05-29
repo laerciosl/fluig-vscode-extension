@@ -915,6 +915,20 @@
 						"description": "Exporta automaticamente o artefato Fluig ao salvar o arquivo (datasets, formulários, eventos, processos, mecanismos, widgets)",
 						"default": false,
 						"scope": "resource"
+					},
+					"fluiggers.workflowPreview.engine": {
+						"type": "string",
+						"enum": [
+							"svg",
+							"bpmn"
+						],
+						"enumDescriptions": [
+							"Renderizador SVG nativo (estável)",
+							"Editor baseado em bpmn-js (experimental)"
+						],
+						"description": "Motor de renderização do preview de workflow (.process). 'bpmn' é experimental e está em desenvolvimento.",
+						"default": "svg",
+						"scope": "window"
 					}
 				}
 			}
@@ -949,6 +963,7 @@
 		"@typescript-eslint/parser": "^7.9.0",
 		"@vscode/test-electron": "^2.3.10",
 		"bootstrap": "^5.3.3",
+		"bpmn-js": "^18.16.1",
 		"bufferutil": "^4.1.0",
 		"datatables.net-bs5": "^2.0.7",
 		"datatables.net-buttons-bs5": "^3.0.2",

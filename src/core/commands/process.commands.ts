@@ -7,7 +7,7 @@ import { registerProcessDiagnostics } from '../providers/process.diagnostics';
 import { getProcessDefinition, clearProcessCache } from '../../fluig/workflow/process/process.cache';
 import { createLogger } from '../logger';
 import { validateProcessDefinition } from '../../fluig/workflow/process/process.validator';
-import { openWorkflowPreview, disposeAllPreviews } from '../views/workflow-preview.webview';
+import { openWorkflowPreview, disposeAllPreviews, initWorkflowPreview } from '../views/workflow-preview.webview';
 import { openDiffPanel, disposeAllDiffPanels } from '../views/process-diff.webview';
 import { diffProcess } from '../../fluig/workflow/process/process.diff';
 import { parseProcess } from '../../fluig/workflow/process/process.parser';
@@ -20,6 +20,8 @@ const PROCESS_SELECTOR: vscode.DocumentSelector = { language: 'fluig-process', s
 const log = createLogger('[PROCESS]');
 
 export function registerProcessCommands(context: vscode.ExtensionContext): void {
+    initWorkflowPreview(context.extensionUri);
+
     const codeLensProvider = new ProcessCodeLensProvider();
 
     context.subscriptions.push(

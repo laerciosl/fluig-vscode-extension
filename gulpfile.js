@@ -109,6 +109,26 @@ function buildHtml5Sortable(cb) {
     cb();
 }
 
+function buildBpmnJs(cb) {
+    // Bundles UMD (expõem window.BpmnJS); carregados um por vez no webview.
+    src([
+        'node_modules/bpmn-js/dist/bpmn-modeler.production.min.js',
+        'node_modules/bpmn-js/dist/bpmn-navigated-viewer.production.min.js',
+    ])
+    .pipe(dest(`${destFolder}/libs/bpmn`));
+
+    // CSS do canvas + ícones (font embutida em base64, sem URL externa → ok com CSP).
+    src([
+        'node_modules/bpmn-js/dist/assets/diagram-js.css',
+        'node_modules/bpmn-js/dist/assets/bpmn-js.css',
+        'node_modules/bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css',
+    ])
+    .pipe(concat('bpmn.css'))
+    .pipe(dest(`${destFolder}/libs/bpmn`));
+
+    cb();
+}
+
 function buildResourcesCss(cb) {
     src('resources/**/*.css')
     .pipe(cleanCSS())
@@ -162,6 +182,7 @@ exports.default = series(
         buildHtml5Sortable,
         buildDatatablesCss,
         buildDatatablesJs,
+        buildBpmnJs,
         buildResourcesJs,
         buildResourcesCss,
         buildResourcesImages,
@@ -181,6 +202,7 @@ exports.buildLibraries = parallel([
     buildHtml5Sortable,
     buildDatatablesCss,
     buildDatatablesJs,
+    buildBpmnJs,
 ]);
 
 exports.buildResources = parallel([

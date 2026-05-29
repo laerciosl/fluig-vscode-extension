@@ -2,13 +2,14 @@ import * as vscode from 'vscode';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { parseProcess } from '../../fluig/workflow/process/process.parser';
-import { buildRenderModel, RenderModel } from '../../fluig/workflow/process/process-to-render.mapper';
+import { buildRenderModel, RenderModel, RenderNode } from '../../fluig/workflow/process/process-to-render.mapper';
 import { validateProcessDefinition, ValidationIssue } from '../../fluig/workflow/process/process.validator';
 import { patchActivityName, patchActivityScriptFileName } from '../../fluig/workflow/process/process.patcher';
 import { extractEmfDiagram } from '../../fluig/workflow/process/process.emf-parser';
 import { ProcessGraph } from '../../fluig/workflow/process/process.graph';
 import type { ActivityKind } from '../../fluig/workflow/process/process.types';
 import type { GatewayConditionInput } from '../../fluig/workflow/process/process.graph';
+import { convertProcessToBpmn } from '../../fluig/workflow/process/process-to-bpmn.mapper';
 import { apiFindGroups, apiFindRoles } from '@fluiggers/sdk';
 import type { OrgGroupDTO, OrgRoleDTO } from '@fluiggers/sdk';
 import { getRuntime } from '../runtime-state';
@@ -17,6 +18,19 @@ import { createLogger } from '../logger';
 const log = createLogger('[PROCESS]');
 
 const panels = new Map<string, WorkflowPreviewPanel>();
+
+/** URI da extensão, para resolver assets do webview (bpmn-js). */
+let extensionUri: vscode.Uri | undefined;
+
+export function initWorkflowPreview(uri: vscode.Uri): void {
+    extensionUri = uri;
+}
+
+function getPreviewEngine(): 'svg' | 'bpmn' {
+    return vscode.workspace
+        .getConfiguration('fluiggers')
+        .get<'svg' | 'bpmn'>('workflowPreview.engine', 'svg');
+}
 
 export function openWorkflowPreview(processUri: vscode.Uri): void {
     const key = processUri.toString();
@@ -44,6 +58,10 @@ class WorkflowPreviewPanel {
     private currentXml = '';
     private groups: OrgGroupDTO[] = [];
     private roles: OrgRoleDTO[] = [];
+    /** Engine atualmente renderizado no webview; permite atualização incremental no bpmn. */
+    private renderedEngine?: 'svg' | 'bpmn';
+    /** Debounce de commit: agrupa várias edições (Save/append) num único write+refresh. */
+    private commitTimer?: ReturnType<typeof setTimeout>;
 
     constructor(private readonly processUri: vscode.Uri) {
         this.panel = vscode.window.createWebviewPanel(
@@ -53,6 +71,9 @@ class WorkflowPreviewPanel {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
+                localResourceRoots: extensionUri
+                    ? [vscode.Uri.joinPath(extensionUri, 'dist')]
+                    : undefined,
             }
         );
 
@@ -78,6 +99,12 @@ class WorkflowPreviewPanel {
     }
 
     dispose(): void {
+        // Garante que uma edição pendente no debounce não se perca ao fechar o painel.
+        if (this.commitTimer) {
+            clearTimeout(this.commitTimer);
+            this.commitTimer = undefined;
+            void vscode.workspace.fs.writeFile(this.processUri, Buffer.from(this.currentXml, 'utf-8'));
+        }
         for (const d of this.disposables) {
             d.dispose();
         }
@@ -114,10 +141,55 @@ class WorkflowPreviewPanel {
             return;
         }
 
+        this.panel.title = `Preview: ${def.metadata.name || def.metadata.id}`;
+
+        if (getPreviewEngine() === 'bpmn') {
+            let emf;
+            try {
+                emf = extractEmfDiagram(xml);
+            } catch {
+                emf = undefined; // sem pictograma → fluxos em linha reta
+            }
+            const conv = convertProcessToBpmn(def, emf);
+            const model = buildRenderModel(def);
+            const nodes: Record<string, RenderNode> = {};
+            for (const node of model.activities) {
+                nodes[node.id] = node;
+            }
+            const issues = validateProcessDefinition(def, { processFsPath: this.processUri.fsPath });
+            const issuesByBpmnId = buildIssuesByBpmnId(issues, conv.fluigToId);
+            if (this.renderedEngine === 'bpmn') {
+                // Webview já vivo: atualiza no lugar sem recriar o HTML (preserva zoom/seleção).
+                this.panel.webview.postMessage({
+                    type: 'updateModel',
+                    xml: conv.xml,
+                    idToFluig: conv.idToFluig,
+                    nodes,
+                    issuesByBpmnId,
+                    formName: model.formName ?? '',
+                });
+            } else {
+                this.panel.webview.html = renderBpmnHtml(conv.xml, this.panel.webview, {
+                    idToFluig: conv.idToFluig,
+                    nodes,
+                    groups: this.groups,
+                    roles: this.roles,
+                    formName: model.formName,
+                    issuesByBpmnId,
+                });
+                this.renderedEngine = 'bpmn';
+            }
+            log.debug(`Preview (bpmn) refresh: ${def.metadata.id} (${def.activities.length} atividades)`);
+            if (conv.losses.length) {
+                log.debug(`Conversão BPMN — perdas conhecidas: ${conv.losses.join('; ')}`);
+            }
+            return;
+        }
+
         const model = buildRenderModel(def);
         const issues = validateProcessDefinition(def, { processFsPath: this.processUri.fsPath });
-        this.panel.title = `Preview: ${def.metadata.name || def.metadata.id}`;
         this.panel.webview.html = renderModelHtml(model, issues, this.groups, this.roles);
+        this.renderedEngine = 'svg';
         log.debug(
             `Preview refresh: ${def.metadata.id} (${model.activities.length} atividades, ${model.edges.length} flows, ${issues.length} issues)`
         );
@@ -146,62 +218,86 @@ class WorkflowPreviewPanel {
                 if (scriptFileName !== undefined) {
                     xml = patchActivityScriptFileName(xml, id, scriptFileName);
                 }
-                try {
-                    await vscode.workspace.fs.writeFile(
-                        this.processUri,
-                        Buffer.from(xml, 'utf-8')
-                    );
-                } catch (err: any) {
-                    vscode.window.showErrorMessage(`Erro ao salvar .process: ${err.message}`);
-                    return;
-                }
-                await this.refresh();
+                this.currentXml = xml;
+                this.scheduleCommit();
                 break;
             }
-            case 'addNode':
-                await this.applyGraphOp(g =>
+            case 'addNode': {
+                const newId = this.applyGraphOp(g =>
                     g.addNode(message.kind, message.name, { x: message.x, y: message.y })
                 );
+                if (newId && message.tempId) {
+                    // Permite ao webview ligar uma conexão pendente (append) ao novo nó.
+                    this.panel.webview.postMessage({
+                        type: 'nodeCreated',
+                        tempId: message.tempId,
+                        fluigId: newId,
+                    });
+                }
                 break;
+            }
             case 'removeNode':
-                await this.applyGraphOp(g => g.removeNode(message.id));
+                this.applyGraphOp(g => g.removeNode(message.id));
                 break;
             case 'moveNode':
-                await this.applyGraphOp(g => g.moveNode(message.id, message.x, message.y));
+                this.applyGraphOp(g => g.moveNode(message.id, message.x, message.y));
                 break;
             case 'connectNodes':
-                await this.applyGraphOp(g => g.connect(message.sourceId, message.targetId));
+                this.applyGraphOp(g => g.connect(message.sourceId, message.targetId));
                 break;
             case 'disconnectFlow':
-                await this.applyGraphOp(g => g.disconnect(message.flowId));
+                this.applyGraphOp(g => g.disconnect(message.flowId));
                 break;
             case 'updateAssignment':
-                await this.applyGraphOp(g =>
+                this.applyGraphOp(g =>
                     g.updateAssignment(message.id, message.mechanism, message.roleId, message.groupId)
                 );
                 break;
             case 'updateConditions':
-                await this.applyGraphOp(g =>
+                this.applyGraphOp(g =>
                     g.updateGatewayConditions(message.id, message.conditions as GatewayConditionInput[])
                 );
                 break;
             case 'updateSla':
-                await this.applyGraphOp(g => g.updateSla(message.id, message.expediente));
+                this.applyGraphOp(g => g.updateSla(message.id, message.expediente));
                 break;
         }
     }
 
-    private async applyGraphOp(op: (graph: ProcessGraph) => void): Promise<void> {
+    /**
+     * Aplica uma operação de grafo ao XML em memória e agenda o commit (debounce).
+     * Síncrono: várias ops de um mesmo Save/append acumulam em `currentXml` e
+     * resultam num único write+refresh, sem race de re-parse do disco.
+     */
+    private applyGraphOp<T>(op: (graph: ProcessGraph) => T): T | undefined {
         try {
             const def = parseProcess(this.currentXml);
             const emf = extractEmfDiagram(this.currentXml);
             const graph = ProcessGraph.from(def, emf);
-            op(graph);
-            const newXml = graph.serialize();
-            await vscode.workspace.fs.writeFile(this.processUri, Buffer.from(newXml, 'utf-8'));
-            await this.refresh();
+            const result = op(graph);
+            this.currentXml = graph.serialize();
+            this.scheduleCommit();
+            return result;
         } catch (err: any) {
             vscode.window.showErrorMessage(`Erro ao editar processo: ${err.message}`);
+            return undefined;
+        }
+    }
+
+    private scheduleCommit(): void {
+        if (this.commitTimer) { clearTimeout(this.commitTimer); }
+        this.commitTimer = setTimeout(() => {
+            this.commitTimer = undefined;
+            void this.commit();
+        }, 120);
+    }
+
+    private async commit(): Promise<void> {
+        try {
+            await vscode.workspace.fs.writeFile(this.processUri, Buffer.from(this.currentXml, 'utf-8'));
+            await this.refresh();
+        } catch (err: any) {
+            vscode.window.showErrorMessage(`Erro ao salvar .process: ${err.message}`);
         }
     }
 
@@ -296,7 +392,7 @@ type PreviewMessage =
     | { type: 'openForm'; formName: string }
     | { type: 'loadOrgChart' }
     | { type: 'patchActivity'; patch: { id: string; name?: string; scriptFileName?: string } }
-    | { type: 'addNode'; kind: ActivityKind; name: string; x: number; y: number }
+    | { type: 'addNode'; kind: ActivityKind; name: string; x: number; y: number; tempId?: string }
     | { type: 'removeNode'; id: string }
     | { type: 'moveNode'; id: string; x: number; y: number }
     | { type: 'connectNodes'; sourceId: string; targetId: string }
@@ -318,6 +414,80 @@ function renderErrorHtml(message: string): string {
 </html>`;
 }
 
+// ── bpmn-js (engine experimental) ───────────────────────────────────────────
+
+function getNonce(): string {
+    let text = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return text;
+}
+
+interface BpmnViewData {
+    idToFluig: Record<string, string>;
+    nodes: Record<string, RenderNode>;
+    groups: OrgGroupDTO[];
+    roles: OrgRoleDTO[];
+    formName?: string;
+    issuesByBpmnId: Record<string, { message: string; severity: string }[]>;
+}
+
+function renderBpmnHtml(bpmnXml: string, webview: vscode.Webview, data: BpmnViewData): string {
+    if (!extensionUri) {
+        return renderErrorHtml('Assets do bpmn-js indisponíveis (extensão não inicializada).');
+    }
+    const root = extensionUri;
+    const asset = (file: string): string =>
+        webview.asWebviewUri(vscode.Uri.joinPath(root, 'dist', 'libs', 'bpmn', file)).toString();
+    const modelerJs = asset('bpmn-modeler.production.min.js');
+    const bpmnCss = asset('bpmn.css');
+    const nonce = getNonce();
+    const csp = [
+        `default-src 'none'`,
+        `img-src ${webview.cspSource} data:`,
+        `script-src ${webview.cspSource} 'nonce-${nonce}'`,
+        `style-src ${webview.cspSource} 'unsafe-inline'`,
+        `font-src ${webview.cspSource} data:`,
+    ].join('; ');
+    return /* html */ `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy" content="${csp}"/>
+<link rel="stylesheet" href="${bpmnCss}"/>
+<style nonce="${nonce}">
+    ${STYLES}
+    html, body { display: block; }
+    .main-area { display: flex; height: 100vh; overflow: hidden; }
+    #bpmn-canvas { flex: 1; height: 100%; position: relative; background: #fff; overflow: hidden; }
+    /* Halo branco atrás dos labels → legíveis mesmo sobre arestas (igual ao SVG). */
+    .djs-label { font-family: Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+    #bpmn-error { font-family: var(--vscode-font-family); color: #b00020; padding: 16px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+    <div class="main-area">
+        <div id="bpmn-canvas"></div>
+        ${PROPERTY_PANEL_HTML}
+    </div>
+    <div id="bpmn-error" hidden></div>
+    <script src="${modelerJs}" nonce="${nonce}"></script>
+    <script nonce="${nonce}">
+        const BPMN_XML = ${JSON.stringify(bpmnXml)};
+        let ID_TO_FLUIG = ${JSON.stringify(data.idToFluig)};
+        let NODES = ${JSON.stringify(data.nodes)};
+        const GROUPS = ${JSON.stringify(data.groups)};
+        const ROLES = ${JSON.stringify(data.roles)};
+        let FORM_NAME = ${JSON.stringify(data.formName ?? '')};
+        let ISSUES = ${JSON.stringify(data.issuesByBpmnId)};
+        ${BPMN_CLIENT_SCRIPT}
+    </script>
+</body>
+</html>`;
+}
+
 function buildIssuesMap(issues: ValidationIssue[]): Record<string, { message: string; severity: string }[]> {
     const map: Record<string, { message: string; severity: string }[]> = {};
     for (const issue of issues) {
@@ -328,53 +498,24 @@ function buildIssuesMap(issues: ValidationIssue[]): Record<string, { message: st
     return map;
 }
 
-function renderModelHtml(
-    model: RenderModel,
+/** Indexa os issues por id do elemento BPMN (para overlays no engine bpmn). */
+function buildIssuesByBpmnId(
     issues: ValidationIssue[],
-    groups: OrgGroupDTO[],
-    roles: OrgRoleDTO[]
-): string {
-    const modelJson = JSON.stringify(model);
-    const issuesJson = JSON.stringify(buildIssuesMap(issues));
-    const groupsJson = JSON.stringify(groups);
-    const rolesJson = JSON.stringify(roles);
-    return /* html */ `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>${escapeHtml(model.processName)}</title>
-    <style>${STYLES}</style>
-</head>
-<body>
-    <header class="toolbar">
-        <div class="title">
-            <strong>${escapeHtml(model.processName || model.processId)}</strong>
-            <span class="badge">v${escapeHtml(model.processVersion)}</span>
-            <span class="meta">${model.activities.length} atividades · ${model.edges.length} fluxos</span>
-        </div>
-        <div class="actions">
-            <button id="btn-edit-mode" title="Ativar modo de edição estrutural">Editar</button>
-            <span class="action-sep"></span>
-            <span id="palette">
-                <button class="palette-btn" data-kind="task" title="Adicionar tarefa">Tarefa</button>
-                <button class="palette-btn" data-kind="service-task" title="Adicionar service task">Serviço</button>
-                <button class="palette-btn" data-kind="gateway-exclusive" title="Adicionar gateway">Gateway</button>
-                <button class="palette-btn" data-kind="start" title="Adicionar início">Início</button>
-                <button class="palette-btn" data-kind="end" title="Adicionar fim">Fim</button>
-            </span>
-            <span class="action-sep" id="sep-edit"></span>
-            <button id="btn-fit" title="Ajustar à tela">Fit</button>
-            <button id="btn-zoom-in" title="Aumentar zoom">+</button>
-            <button id="btn-zoom-out" title="Diminuir zoom">−</button>
-            <span id="zoom-indicator">100%</span>
-        </div>
-    </header>
-    <div class="main-area">
-        <div id="canvas-wrapper">
-            <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
-        </div>
-        <aside id="property-panel" class="panel-hidden">
+    fluigToId: Record<string, string>
+): Record<string, { message: string; severity: string }[]> {
+    const map: Record<string, { message: string; severity: string }[]> = {};
+    for (const issue of issues) {
+        if (!issue.targetId) { continue; }
+        const bpmnId = fluigToId[issue.targetId];
+        if (!bpmnId) { continue; }
+        if (!map[bpmnId]) { map[bpmnId] = []; }
+        map[bpmnId].push({ message: issue.message, severity: issue.severity });
+    }
+    return map;
+}
+
+// Marcação do painel de propriedades, compartilhada entre os engines svg e bpmn.
+const PROPERTY_PANEL_HTML = /* html */ `<aside id="property-panel" class="panel-hidden">
             <div class="panel-header">
                 <span class="panel-title">Propriedades</span>
                 <button id="btn-panel-close" title="Fechar painel">×</button>
@@ -436,7 +577,55 @@ function renderModelHtml(
                     <button id="btn-open-subprocess" hidden>Abrir Sub-processo</button>
                 </div>
             </div>
-        </aside>
+        </aside>`;
+
+function renderModelHtml(
+    model: RenderModel,
+    issues: ValidationIssue[],
+    groups: OrgGroupDTO[],
+    roles: OrgRoleDTO[]
+): string {
+    const modelJson = JSON.stringify(model);
+    const issuesJson = JSON.stringify(buildIssuesMap(issues));
+    const groupsJson = JSON.stringify(groups);
+    const rolesJson = JSON.stringify(roles);
+    return /* html */ `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>${escapeHtml(model.processName)}</title>
+    <style>${STYLES}</style>
+</head>
+<body>
+    <header class="toolbar">
+        <div class="title">
+            <strong>${escapeHtml(model.processName || model.processId)}</strong>
+            <span class="badge">v${escapeHtml(model.processVersion)}</span>
+            <span class="meta">${model.activities.length} atividades · ${model.edges.length} fluxos</span>
+        </div>
+        <div class="actions">
+            <button id="btn-edit-mode" title="Ativar modo de edição estrutural">Editar</button>
+            <span class="action-sep"></span>
+            <span id="palette">
+                <button class="palette-btn" data-kind="task" title="Adicionar tarefa">Tarefa</button>
+                <button class="palette-btn" data-kind="service-task" title="Adicionar service task">Serviço</button>
+                <button class="palette-btn" data-kind="gateway-exclusive" title="Adicionar gateway">Gateway</button>
+                <button class="palette-btn" data-kind="start" title="Adicionar início">Início</button>
+                <button class="palette-btn" data-kind="end" title="Adicionar fim">Fim</button>
+            </span>
+            <span class="action-sep" id="sep-edit"></span>
+            <button id="btn-fit" title="Ajustar à tela">Fit</button>
+            <button id="btn-zoom-in" title="Aumentar zoom">+</button>
+            <button id="btn-zoom-out" title="Diminuir zoom">−</button>
+            <span id="zoom-indicator">100%</span>
+        </div>
+    </header>
+    <div class="main-area">
+        <div id="canvas-wrapper">
+            <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        ${PROPERTY_PANEL_HTML}
     </div>
     <div id="empty-hint" hidden>Nenhuma atividade encontrada.</div>
     <script>
@@ -1460,6 +1649,437 @@ const CLIENT_SCRIPT = /* javascript */ `
                 btn.classList.add('active');
             }
         });
+    });
+})();
+`;
+
+// ── Client script do engine bpmn-js (executa dentro do webview) ─────────────
+
+const BPMN_CLIENT_SCRIPT = /* javascript */ `
+(() => {
+    const vscode = acquireVsCodeApi();
+    const propertyPanel = document.getElementById('property-panel');
+    let selectedActivity = null;
+    let selectedBpmnId = null;
+
+    // Reconciliação de append: nó recém-criado tem id transitório do bpmn-js até
+    // o host devolver o id Fluig; a conexão fica pendente até lá.
+    const tempToFluig = {};
+    const pendingConnections = [];
+    function resolveFluig(bpmnId) { return ID_TO_FLUIG[bpmnId] || tempToFluig[bpmnId] || null; }
+    function tryConnect(sourceBpmnId, targetBpmnId) {
+        const s = resolveFluig(sourceBpmnId);
+        const t = resolveFluig(targetBpmnId);
+        if (s && t && s !== t) { vscode.postMessage({ type: 'connectNodes', sourceId: s, targetId: t }); return true; }
+        return false;
+    }
+    function flushPendingConnections() {
+        for (let i = pendingConnections.length - 1; i >= 0; i--) {
+            const p = pendingConnections[i];
+            if (tryConnect(p.source, p.target)) { pendingConnections.splice(i, 1); }
+        }
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('bpmn-error');
+        el.hidden = false;
+        el.textContent = 'Falha ao renderizar BPMN:\\n' + msg;
+    }
+    if (typeof BpmnJS === 'undefined') { showError('Bundle do bpmn-js não carregou.'); return; }
+
+    const modeler = new BpmnJS({
+        container: document.getElementById('bpmn-canvas'),
+        textRenderer: {
+            defaultStyle: { fontFamily: 'Arial, sans-serif', fontSize: 11, lineHeight: 1.1 },
+            externalStyle: { fontFamily: 'Arial, sans-serif', fontSize: 10, lineHeight: 1.1 },
+        },
+    });
+
+    let issueOverlayIds = [];
+    function applyIssueOverlays() {
+        let overlays, registry;
+        try { overlays = modeler.get('overlays'); registry = modeler.get('elementRegistry'); } catch (e) { return; }
+        for (const oid of issueOverlayIds) { try { overlays.remove(oid); } catch (e) {} }
+        issueOverlayIds = [];
+        for (const bpmnId of Object.keys(ISSUES || {})) {
+            const list = ISSUES[bpmnId] || [];
+            if (!list.length) { continue; }
+            if (!registry.get(bpmnId)) { continue; }
+            const hasError = list.some(i => i.severity === 'error');
+            const color = hasError ? '#d32f2f' : '#f57f17';
+            const title = list.map(i => (i.severity === 'error' ? '✗ ' : '⚠ ') + i.message).join('&#10;');
+            const badge = '<div title="' + title.replace(/"/g, '&quot;') +
+                '" style="background:' + color + ';color:#fff;border-radius:50%;width:16px;height:16px;' +
+                'font-size:10px;line-height:16px;text-align:center;font-family:sans-serif;cursor:default;' +
+                'box-shadow:0 0 0 1.5px #fff;">' + list.length + '</div>';
+            try {
+                const oid = overlays.add(bpmnId, { position: { top: -8, right: 8 }, html: badge });
+                issueOverlayIds.push(oid);
+            } catch (e) {}
+        }
+    }
+
+    modeler.importXML(BPMN_XML).then(() => {
+        try { modeler.get('canvas').zoom('fit-viewport'); } catch (e) {}
+        applyIssueOverlays();
+        const eventBus = modeler.get('eventBus');
+        eventBus.on('selection.changed', (e) => {
+            const sel = (e && e.newSelection) || [];
+            selectedBpmnId = sel.length ? sel[0].id : null;
+            if (!sel.length) { hidePropertyPanel(); return; }
+            const fluigId = ID_TO_FLUIG[sel[0].id];
+            const node = fluigId ? NODES[fluigId] : null;
+            if (node) { showPropertyPanel(node); } else { hidePropertyPanel(); }
+        });
+
+        // Mover nó → persiste a posição (top-left) via ProcessGraph.moveNode.
+        eventBus.on(
+            ['commandStack.elements.move.executed', 'commandStack.shape.move.executed'],
+            (e) => {
+                const ctx = (e && e.context) || {};
+                const shapes = ctx.shapes || (ctx.shape ? [ctx.shape] : []);
+                for (const sh of shapes) {
+                    if (!sh || sh.waypoints) { continue; } // ignora conexões
+                    const fluigId = ID_TO_FLUIG[sh.id];
+                    if (!fluigId || !NODES[fluigId]) { continue; } // só atividades
+                    vscode.postMessage({
+                        type: 'moveNode',
+                        id: fluigId,
+                        x: Math.round(sh.x),
+                        y: Math.round(sh.y),
+                    });
+                }
+            }
+        );
+
+        // Criar nó → addNode com tempId (o re-import troca o id transitório pelo id Fluig).
+        eventBus.on('commandStack.shape.create.executed', (e) => {
+            const sh = e.context && e.context.shape;
+            if (!sh || sh.labelTarget) { return; } // ignora labels
+            const kind = bpmnTypeToKind(sh.type);
+            if (!kind) { return; } // tipo sem equivalente Fluig: descartado no próximo re-import
+            vscode.postMessage({
+                type: 'addNode',
+                kind: kind,
+                name: DEFAULT_NODE_NAMES[kind] || kind,
+                x: Math.round(sh.x),
+                y: Math.round(sh.y),
+                tempId: sh.id,
+            });
+        });
+
+        // Conectar → connectNodes. Se o alvo for um nó recém-criado (append), fica
+        // pendente até o nodeCreated chegar com o id Fluig.
+        eventBus.on('commandStack.connection.create.executed', (e) => {
+            const conn = e.context && e.context.connection;
+            if (!conn || !conn.source || !conn.target) { return; }
+            if (!tryConnect(conn.source.id, conn.target.id)) {
+                pendingConnections.push({ source: conn.source.id, target: conn.target.id });
+            }
+        });
+
+        // Remover nó / conexão (via context-pad) → removeNode / disconnectFlow.
+        eventBus.on('commandStack.shape.delete.executed', (e) => {
+            const sh = e.context && e.context.shape;
+            if (!sh) { return; }
+            const fluigId = ID_TO_FLUIG[sh.id];
+            if (fluigId && NODES[fluigId]) { vscode.postMessage({ type: 'removeNode', id: fluigId }); }
+        });
+        eventBus.on('commandStack.connection.delete.executed', (e) => {
+            const conn = e.context && e.context.connection;
+            if (!conn) { return; }
+            const fluigId = ID_TO_FLUIG[conn.id];
+            if (fluigId) { vscode.postMessage({ type: 'disconnectFlow', flowId: fluigId }); }
+        });
+    }).catch((err) => showError(err && err.message ? err.message : String(err)));
+
+    // Reimporta o modelo atualizado preservando zoom/seleção (evita "pulo" ao salvar).
+    // Um Save pode disparar vários updateModel; o guard coalesce para o último,
+    // já que importXML do bpmn-js não é reentrante.
+    let importing = false;
+    let pendingUpdate = null;
+    function applyModelUpdate(msg) {
+        if (importing) { pendingUpdate = msg; return; }
+        importing = true;
+        ID_TO_FLUIG = msg.idToFluig || {};
+        NODES = msg.nodes || {};
+        FORM_NAME = msg.formName || '';
+        ISSUES = msg.issuesByBpmnId || {};
+        let vb = null;
+        try { vb = modeler.get('canvas').viewbox(); } catch (e) {}
+        const reselect = selectedBpmnId;
+        modeler.importXML(msg.xml).then(() => {
+            if (vb && vb.width) { try { modeler.get('canvas').viewbox(vb); } catch (e) {} }
+            applyIssueOverlays();
+            if (reselect) {
+                const el = modeler.get('elementRegistry').get(reselect);
+                if (el) {
+                    try { modeler.get('selection').select(el); } catch (e) {}
+                    const node = NODES[ID_TO_FLUIG[reselect]];
+                    if (node) { showPropertyPanel(node); }
+                }
+            }
+        }).catch((err) => showError(err && err.message ? err.message : String(err)))
+          .finally(() => {
+            importing = false;
+            if (pendingUpdate) { const m = pendingUpdate; pendingUpdate = null; applyModelUpdate(m); }
+        });
+    }
+
+    // ── Painel de propriedades (porte do renderizador svg) ───────────────
+    function showPropertyPanel(a) {
+        document.getElementById('prop-id').textContent = a.id;
+        document.getElementById('prop-kind').textContent = kindLabel(a.kind);
+        document.getElementById('prop-name').value = a.label || '';
+
+        const rowScript = document.getElementById('row-script');
+        const propScript = document.getElementById('prop-script');
+        const btnOpenScript = document.getElementById('btn-open-script');
+        if (a.kind === 'service-task') {
+            rowScript.hidden = false;
+            propScript.value = a.scriptFileName || '';
+            btnOpenScript.hidden = !a.scriptFileName;
+        } else {
+            rowScript.hidden = true;
+            btnOpenScript.hidden = true;
+        }
+
+        const rowAssignment = document.getElementById('row-assignment');
+        const rowRoleInput  = document.getElementById('row-role-input');
+        const rowSla        = document.getElementById('row-sla');
+        const mechanismSel  = document.getElementById('prop-mechanism-select');
+        const lblRoleInput  = document.getElementById('lbl-role-input');
+        const slaInput      = document.getElementById('prop-sla');
+
+        const isTask = a.kind === 'task' || a.kind === 'service-task';
+        rowAssignment.hidden = !isTask;
+        rowRoleInput.hidden  = !isTask;
+        rowSla.hidden        = !isTask;
+        if (isTask) {
+            const mech = a.managerMechanism || 'Papel';
+            mechanismSel.value = mech;
+            const isGroup = mech === 'Grupo' || mech === 'Pool Grupo';
+            lblRoleInput.textContent = isGroup ? 'Grupo' : 'Papel';
+            updateRoleControl(isGroup, a.roleId || a.groupId || '');
+            slaInput.value = a.expediente || '';
+        }
+
+        const rowConditions  = document.getElementById('row-conditions');
+        const conditionsList = document.getElementById('conditions-list');
+        rowConditions.hidden = a.kind !== 'gateway-exclusive';
+        if (a.kind === 'gateway-exclusive') {
+            conditionsList.innerHTML = '';
+            (a.conditions || []).forEach(c => conditionsList.appendChild(buildConditionRow(c.expression, c.targetTaskId)));
+        }
+
+        document.getElementById('row-issues').hidden = true;
+
+        const btnOpenSub = document.getElementById('btn-open-subprocess');
+        btnOpenSub.hidden = !(a.kind === 'subprocess' && a.process);
+
+        const rowForm = document.getElementById('row-form');
+        const propFormName = document.getElementById('prop-form-name');
+        if (FORM_NAME) { propFormName.textContent = FORM_NAME; rowForm.hidden = false; }
+        else { rowForm.hidden = true; }
+
+        selectedActivity = a;
+        propertyPanel.classList.remove('panel-hidden');
+
+        mechanismSel.onchange = () => {
+            const isGrp = mechanismSel.value === 'Grupo' || mechanismSel.value === 'Pool Grupo';
+            lblRoleInput.textContent = isGrp ? 'Grupo' : 'Papel';
+            updateRoleControl(isGrp, '');
+        };
+    }
+
+    function updateRoleControl(isGroup, currentVal) {
+        const roleInput  = document.getElementById('prop-role-input');
+        const roleSelect = document.getElementById('prop-role-select');
+        const list = isGroup ? GROUPS : ROLES;
+        if (list.length > 0) {
+            populateRoleSelect(list, isGroup ? 'groupId' : 'roleId', isGroup ? 'groupDescription' : 'roleDescription', currentVal);
+            roleInput.hidden = true; roleSelect.hidden = false;
+        } else {
+            roleInput.placeholder = isGroup ? 'id do grupo' : 'id do papel';
+            roleInput.value = currentVal;
+            roleInput.hidden = false; roleSelect.hidden = true;
+        }
+    }
+
+    function populateRoleSelect(list, idKey, descKey, currentVal) {
+        const roleSelect = document.getElementById('prop-role-select');
+        roleSelect.innerHTML = '';
+        for (const item of list) {
+            const opt = document.createElement('option');
+            opt.value = item[idKey];
+            opt.textContent = item[descKey] + ' (' + item[idKey] + ')';
+            if (item[idKey] === currentVal) { opt.selected = true; }
+            roleSelect.appendChild(opt);
+        }
+        if (currentVal && !list.some(i => i[idKey] === currentVal)) {
+            const opt = document.createElement('option');
+            opt.value = currentVal;
+            opt.textContent = currentVal + ' (não encontrado no servidor)';
+            opt.selected = true;
+            roleSelect.insertBefore(opt, roleSelect.firstChild);
+        }
+    }
+
+    function buildConditionRow(expr, target) {
+        const row = document.createElement('div');
+        row.className = 'condition-row';
+        const exprInp = document.createElement('input');
+        exprInp.className = 'cond-expr field-input';
+        exprInp.placeholder = 'expressão JavaScript';
+        exprInp.value = expr || '';
+        const targetInp = document.createElement('input');
+        targetInp.className = 'cond-target field-input';
+        targetInp.placeholder = 'id da task alvo';
+        targetInp.value = target || '';
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'cond-remove';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remover condição';
+        removeBtn.onclick = () => row.remove();
+        row.appendChild(exprInp); row.appendChild(targetInp); row.appendChild(removeBtn);
+        return row;
+    }
+
+    function hidePropertyPanel() {
+        propertyPanel.classList.add('panel-hidden');
+        selectedActivity = null;
+    }
+
+    function kindLabel(kind) {
+        const labels = {
+            'start':'Início','end':'Fim','end-cancel':'Fim (Cancelar)',
+            'task':'Tarefa','service-task':'Service Task','subprocess':'Sub-processo',
+            'gateway-exclusive':'Gateway Exclusivo',
+            'intermediate-link-throw':'Link (Enviar)','intermediate-link-receive':'Link (Receber)',
+            'intermediate-error':'Erro Intermediário',
+        };
+        return labels[kind] || kind;
+    }
+
+    const DEFAULT_NODE_NAMES = {
+        'task':'Nova Tarefa','service-task':'Novo Serviço','gateway-exclusive':'Gateway',
+        'start':'Início','end':'Fim','subprocess':'Sub-processo',
+    };
+
+    // Mapeia o tipo BPMN criado no bpmn-js para o kind do Fluig (null = não suportado).
+    function bpmnTypeToKind(type) {
+        switch (type) {
+            case 'bpmn:StartEvent': return 'start';
+            case 'bpmn:EndEvent': return 'end';
+            case 'bpmn:ExclusiveGateway':
+            case 'bpmn:Gateway':
+            case 'bpmn:ParallelGateway':
+            case 'bpmn:InclusiveGateway':
+            case 'bpmn:EventBasedGateway': return 'gateway-exclusive';
+            case 'bpmn:ServiceTask':
+            case 'bpmn:ScriptTask':
+            case 'bpmn:SendTask':
+            case 'bpmn:ReceiveTask':
+            case 'bpmn:BusinessRuleTask':
+            case 'bpmn:ManualTask': return 'service-task';
+            case 'bpmn:UserTask':
+            case 'bpmn:Task': return 'task';
+            case 'bpmn:SubProcess':
+            case 'bpmn:CallActivity': return 'subprocess';
+            default: return null;
+        }
+    }
+
+    // ── Orgchart sob demanda (reusa handler do host) ────────────────────
+    window.addEventListener('message', (event) => {
+        const msg = event.data;
+        if (!msg) { return; }
+        if (msg.type === 'updateModel') { applyModelUpdate(msg); return; }
+        if (msg.type === 'nodeCreated') {
+            if (msg.tempId && msg.fluigId) { tempToFluig[msg.tempId] = msg.fluigId; flushPendingConnections(); }
+            return;
+        }
+        if (msg.type !== 'orgChartLoaded') { return; }
+        GROUPS.length = 0; GROUPS.push(...(msg.groups || []));
+        ROLES.length = 0; ROLES.push(...(msg.roles || []));
+        const btn = document.getElementById('btn-load-orgchart');
+        if (btn) {
+            btn.textContent = (GROUPS.length > 0 || ROLES.length > 0) ? '✓ Carregado' : (msg.error ? '⚠ Sem dados' : '✓ Vazio');
+            btn.disabled = true;
+        }
+        if (selectedActivity && (selectedActivity.kind === 'task' || selectedActivity.kind === 'service-task')) {
+            const mech = document.getElementById('prop-mechanism-select').value;
+            const isGrp = mech === 'Grupo' || mech === 'Pool Grupo';
+            const cur = document.getElementById('prop-role-input').value || document.getElementById('prop-role-select').value || '';
+            updateRoleControl(isGrp, cur);
+        }
+    });
+
+    document.getElementById('btn-panel-close').addEventListener('click', hidePropertyPanel);
+    document.getElementById('btn-load-orgchart').addEventListener('click', () => {
+        const btn = document.getElementById('btn-load-orgchart');
+        btn.textContent = '...'; btn.disabled = true;
+        vscode.postMessage({ type: 'loadOrgChart' });
+    });
+    document.getElementById('btn-add-condition').addEventListener('click', () => {
+        document.getElementById('conditions-list').appendChild(buildConditionRow('', ''));
+    });
+    document.getElementById('btn-open-script').addEventListener('click', () => {
+        if (selectedActivity && selectedActivity.scriptFileName) {
+            vscode.postMessage({ type: 'openScript', scriptFileName: selectedActivity.scriptFileName });
+        }
+    });
+    document.getElementById('btn-open-subprocess').addEventListener('click', () => {
+        if (selectedActivity && selectedActivity.process) {
+            vscode.postMessage({ type: 'openSubProcess', processId: selectedActivity.process });
+        }
+    });
+    document.getElementById('btn-open-form').addEventListener('click', () => {
+        if (FORM_NAME) { vscode.postMessage({ type: 'openForm', formName: FORM_NAME }); }
+    });
+
+    document.getElementById('btn-save-props').addEventListener('click', () => {
+        if (!selectedActivity) { return; }
+        const a = selectedActivity;
+        const id = a.id;
+        const patch = { id };
+        const newName = document.getElementById('prop-name').value.trim();
+        if (newName !== (a.label || '')) { patch.name = newName; }
+        if (a.kind === 'service-task') {
+            const newScript = document.getElementById('prop-script').value.trim();
+            if (newScript !== (a.scriptFileName || '')) { patch.scriptFileName = newScript; }
+        }
+        if (Object.keys(patch).length > 1) { vscode.postMessage({ type: 'patchActivity', patch }); }
+
+        const isTask = a.kind === 'task' || a.kind === 'service-task';
+        if (isTask) {
+            const mechanism = document.getElementById('prop-mechanism-select').value;
+            const roleSelect = document.getElementById('prop-role-select');
+            const roleInput = document.getElementById('prop-role-input');
+            const roleVal = (!roleSelect.hidden ? roleSelect.value : roleInput.value).trim();
+            const isGroup = mechanism === 'Grupo' || mechanism === 'Pool Grupo';
+            const roleId = isGroup ? undefined : (roleVal || undefined);
+            const groupId = isGroup ? (roleVal || undefined) : undefined;
+            if (mechanism !== (a.managerMechanism || 'Papel') || roleVal !== (a.roleId || a.groupId || '')) {
+                vscode.postMessage({ type: 'updateAssignment', id, mechanism, roleId, groupId });
+            }
+            const newSla = document.getElementById('prop-sla').value.trim();
+            if (newSla !== (a.expediente || '')) { vscode.postMessage({ type: 'updateSla', id, expediente: newSla }); }
+        }
+
+        if (a.kind === 'gateway-exclusive') {
+            const rows = document.getElementById('conditions-list').querySelectorAll('.condition-row');
+            const conditions = Array.from(rows).map(row => ({
+                expression: row.querySelector('.cond-expr').value.trim(),
+                targetTaskId: row.querySelector('.cond-target').value.trim(),
+            })).filter(c => c.expression && c.targetTaskId);
+            vscode.postMessage({ type: 'updateConditions', id, conditions });
+        }
+    });
+
+    ['prop-name','prop-script'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) { input.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btn-save-props').click(); }); }
     });
 })();
 `;
