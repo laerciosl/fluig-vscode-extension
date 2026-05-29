@@ -9,6 +9,9 @@ import { extractEmfDiagram } from '../../fluig/workflow/process/process.emf-pars
 import { ProcessGraph } from '../../fluig/workflow/process/process.graph';
 import type { ActivityKind } from '../../fluig/workflow/process/process.types';
 import type { GatewayConditionInput } from '../../fluig/workflow/process/process.graph';
+import { apiFindGroups, apiFindRoles } from '@fluiggers/sdk';
+import type { OrgGroupDTO, OrgRoleDTO } from '@fluiggers/sdk';
+import { getRuntime } from '../runtime-state';
 import { createLogger } from '../logger';
 
 const log = createLogger('[PROCESS]');
@@ -39,6 +42,8 @@ class WorkflowPreviewPanel {
     private readonly disposables: vscode.Disposable[] = [];
     private readonly onDisposeHandlers: (() => void)[] = [];
     private currentXml = '';
+    private groups: OrgGroupDTO[] = [];
+    private roles: OrgRoleDTO[] = [];
 
     constructor(private readonly processUri: vscode.Uri) {
         this.panel = vscode.window.createWebviewPanel(
@@ -112,7 +117,7 @@ class WorkflowPreviewPanel {
         const model = buildRenderModel(def);
         const issues = validateProcessDefinition(def, { processFsPath: this.processUri.fsPath });
         this.panel.title = `Preview: ${def.metadata.name || def.metadata.id}`;
-        this.panel.webview.html = renderModelHtml(model, issues);
+        this.panel.webview.html = renderModelHtml(model, issues, this.groups, this.roles);
         log.debug(
             `Preview refresh: ${def.metadata.id} (${model.activities.length} atividades, ${model.edges.length} flows, ${issues.length} issues)`
         );
@@ -128,6 +133,9 @@ class WorkflowPreviewPanel {
                 break;
             case 'openForm':
                 await this.openForm(message.formName);
+                break;
+            case 'loadOrgChart':
+                await this.handleLoadOrgChart();
                 break;
             case 'patchActivity': {
                 const { id, name, scriptFileName } = message.patch;
@@ -194,6 +202,28 @@ class WorkflowPreviewPanel {
             await this.refresh();
         } catch (err: any) {
             vscode.window.showErrorMessage(`Erro ao editar processo: ${err.message}`);
+        }
+    }
+
+    private async handleLoadOrgChart(): Promise<void> {
+        const server = getRuntime().activeServer;
+        if (!server) {
+            this.panel.webview.postMessage({ type: 'orgChartLoaded', groups: [], roles: [], error: 'Sem servidor conectado.' });
+            return;
+        }
+        try {
+            const [groups, roles] = await Promise.all([
+                apiFindGroups(server),
+                apiFindRoles(server),
+            ]);
+            this.groups = groups;
+            this.roles = roles;
+            log.info(`Orgchart carregado: ${groups.length} grupos, ${roles.length} papéis`);
+            this.panel.webview.postMessage({ type: 'orgChartLoaded', groups, roles });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            log.error(`Orgchart indisponível (${server.host}): ${msg}`);
+            this.panel.webview.postMessage({ type: 'orgChartLoaded', groups: [], roles: [], error: msg });
         }
     }
 
@@ -264,6 +294,7 @@ type PreviewMessage =
     | { type: 'openScript'; scriptFileName: string }
     | { type: 'openSubProcess'; processId: string }
     | { type: 'openForm'; formName: string }
+    | { type: 'loadOrgChart' }
     | { type: 'patchActivity'; patch: { id: string; name?: string; scriptFileName?: string } }
     | { type: 'addNode'; kind: ActivityKind; name: string; x: number; y: number }
     | { type: 'removeNode'; id: string }
@@ -297,9 +328,16 @@ function buildIssuesMap(issues: ValidationIssue[]): Record<string, { message: st
     return map;
 }
 
-function renderModelHtml(model: RenderModel, issues: ValidationIssue[]): string {
+function renderModelHtml(
+    model: RenderModel,
+    issues: ValidationIssue[],
+    groups: OrgGroupDTO[],
+    roles: OrgRoleDTO[]
+): string {
     const modelJson = JSON.stringify(model);
     const issuesJson = JSON.stringify(buildIssuesMap(issues));
+    const groupsJson = JSON.stringify(groups);
+    const rolesJson = JSON.stringify(roles);
     return /* html */ `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -368,8 +406,12 @@ function renderModelHtml(model: RenderModel, issues: ValidationIssue[]): string 
                     </select>
                 </div>
                 <div class="field-row" id="row-role-input">
-                    <label class="field-label" id="lbl-role-input">Papel/Grupo</label>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <label class="field-label" id="lbl-role-input">Papel/Grupo</label>
+                        <button id="btn-load-orgchart" class="btn-secondary" style="font-size:10px;padding:1px 6px" title="Carregar lista do servidor Fluig">Carregar</button>
+                    </div>
                     <input id="prop-role-input" type="text" class="field-input" placeholder="id do papel ou grupo"/>
+                    <select id="prop-role-select" class="field-input" hidden></select>
                 </div>
                 <div class="field-row" id="row-sla">
                     <label class="field-label">Expediente (SLA)</label>
@@ -400,6 +442,8 @@ function renderModelHtml(model: RenderModel, issues: ValidationIssue[]): string 
     <script>
         const MODEL = ${modelJson};
         const VALIDATION_ISSUES = ${issuesJson};
+        const GROUPS = ${groupsJson};
+        const ROLES = ${rolesJson};
         ${CLIENT_SCRIPT}
     </script>
 </body>
@@ -961,6 +1005,7 @@ const CLIENT_SCRIPT = /* javascript */ `
         const rowSla        = document.getElementById('row-sla');
         const mechanismSel  = document.getElementById('prop-mechanism-select');
         const roleInput     = document.getElementById('prop-role-input');
+        const roleSelect    = document.getElementById('prop-role-select');
         const lblRoleInput  = document.getElementById('lbl-role-input');
         const slaInput      = document.getElementById('prop-sla');
 
@@ -974,8 +1019,8 @@ const CLIENT_SCRIPT = /* javascript */ `
             mechanismSel.value = mech;
             const isGroup = mech === 'Grupo' || mech === 'Pool Grupo';
             lblRoleInput.textContent = isGroup ? 'Grupo' : 'Papel';
-            roleInput.placeholder    = isGroup ? 'id do grupo' : 'id do papel';
-            roleInput.value = a.roleId || a.groupId || '';
+            const currentVal = a.roleId || a.groupId || '';
+            updateRoleControl(isGroup, currentVal);
             slaInput.value  = a.expediente || '';
         }
 
@@ -1016,13 +1061,78 @@ const CLIENT_SCRIPT = /* javascript */ `
 
         propertyPanel.classList.remove('panel-hidden');
 
-        // Atualizar label do role ao mudar mecanismo
         mechanismSel.onchange = () => {
             const isGrp = mechanismSel.value === 'Grupo' || mechanismSel.value === 'Pool Grupo';
             lblRoleInput.textContent = isGrp ? 'Grupo' : 'Papel';
-            roleInput.placeholder    = isGrp ? 'id do grupo' : 'id do papel';
+            updateRoleControl(isGrp, '');
         };
     }
+
+    function updateRoleControl(isGroup, currentVal) {
+        const roleInput  = document.getElementById('prop-role-input');
+        const roleSelect = document.getElementById('prop-role-select');
+        const list = isGroup ? GROUPS : ROLES;
+
+        if (list.length > 0) {
+            populateRoleSelect(list, isGroup ? 'groupId' : 'roleId', isGroup ? 'groupDescription' : 'roleDescription', currentVal);
+            roleInput.hidden  = true;
+            roleSelect.hidden = false;
+        } else {
+            roleInput.placeholder = isGroup ? 'id do grupo' : 'id do papel';
+            roleInput.value       = currentVal;
+            roleInput.hidden  = false;
+            roleSelect.hidden = true;
+        }
+    }
+
+    function populateRoleSelect(list, idKey, descKey, currentVal) {
+        const roleSelect = document.getElementById('prop-role-select');
+        roleSelect.innerHTML = '';
+        for (const item of list) {
+            const opt = document.createElement('option');
+            opt.value = item[idKey];
+            opt.textContent = item[descKey] + ' (' + item[idKey] + ')';
+            if (item[idKey] === currentVal) { opt.selected = true; }
+            roleSelect.appendChild(opt);
+        }
+        if (currentVal && !list.some(i => i[idKey] === currentVal)) {
+            const opt = document.createElement('option');
+            opt.value = currentVal;
+            opt.textContent = currentVal + ' (não encontrado no servidor)';
+            opt.selected = true;
+            roleSelect.insertBefore(opt, roleSelect.firstChild);
+        }
+    }
+
+    // Recebe resposta do host com grupos/papéis carregados sob demanda
+    window.addEventListener('message', (event) => {
+        const msg = event.data;
+        if (msg?.type !== 'orgChartLoaded') { return; }
+        GROUPS.length = 0; GROUPS.push(...(msg.groups || []));
+        ROLES.length  = 0; ROLES.push(...(msg.roles  || []));
+
+        const btnLoad = document.getElementById('btn-load-orgchart');
+        if (btnLoad) {
+            btnLoad.textContent = GROUPS.length > 0 || ROLES.length > 0
+                ? '✓ Carregado'
+                : (msg.error ? '⚠ Sem dados' : '✓ Vazio');
+            btnLoad.disabled = true;
+        }
+
+        if (selectedActivity && (selectedActivity.kind === 'task' || selectedActivity.kind === 'service-task')) {
+            const mech = document.getElementById('prop-mechanism-select').value;
+            const isGrp = mech === 'Grupo' || mech === 'Pool Grupo';
+            const currentVal = document.getElementById('prop-role-input').value ||
+                               document.getElementById('prop-role-select').value || '';
+            updateRoleControl(isGrp, currentVal);
+            const roleInput  = document.getElementById('prop-role-input');
+            const roleSelect = document.getElementById('prop-role-select');
+            if (!roleSelect.hidden) {
+                roleInput.hidden  = true;
+                roleSelect.hidden = false;
+            }
+        }
+    });
 
     function buildConditionRow(expr, target) {
         const row = document.createElement('div');
@@ -1089,9 +1199,11 @@ const CLIENT_SCRIPT = /* javascript */ `
         // Assignment (tasks/service-tasks)
         const isTask = a.kind === 'task' || a.kind === 'service-task';
         if (isTask) {
-            const mechanism = document.getElementById('prop-mechanism-select').value;
-            const roleVal   = document.getElementById('prop-role-input').value.trim();
-            const isGroup   = mechanism === 'Grupo' || mechanism === 'Pool Grupo';
+            const mechanism   = document.getElementById('prop-mechanism-select').value;
+            const roleSelect  = document.getElementById('prop-role-select');
+            const roleInput   = document.getElementById('prop-role-input');
+            const roleVal     = (!roleSelect.hidden ? roleSelect.value : roleInput.value).trim();
+            const isGroup     = mechanism === 'Grupo' || mechanism === 'Pool Grupo';
             const roleId    = isGroup ? undefined : (roleVal || undefined);
             const groupId   = isGroup ? (roleVal || undefined) : undefined;
             if (mechanism !== (a.managerMechanism || 'Papel') || roleVal !== (a.roleId || a.groupId || '')) {
@@ -1135,6 +1247,13 @@ const CLIENT_SCRIPT = /* javascript */ `
         if (MODEL.formName) {
             vscode.postMessage({ type: 'openForm', formName: MODEL.formName });
         }
+    });
+
+    document.getElementById('btn-load-orgchart').addEventListener('click', () => {
+        const btn = document.getElementById('btn-load-orgchart');
+        btn.textContent = '...';
+        btn.disabled = true;
+        vscode.postMessage({ type: 'loadOrgChart' });
     });
 
     // Click on canvas background: place node or deselect

@@ -182,6 +182,7 @@ Renderização SVG nativa do `.process` em um painel lateral com edição inline
 | **Zoom & Pan** | Roda do mouse para zoom, arrastar para pan, botões `+`/`−`/`Fit` na toolbar. Indicador de zoom em %. |
 | **Painel de propriedades** | Clicar em qualquer atividade abre o painel lateral direito com ID (somente leitura), tipo, campo editável de nome e (para service-task) campo editável de `scriptFileName`. |
 | **Editar e salvar** | Alterar nome ou script no painel e clicar **Salvar** (ou pressionar Enter) atualiza o `.process` em disco sem reconstruir o XML — apenas o atributo alvo é substituído na linha correspondente. |
+| **Atribuição de tarefas** | Tasks e service-tasks permitem escolher o mecanismo (Papel, Pool Papel, Grupo, Pool Grupo), o responsável e o expediente (SLA). O botão **Carregar** busca os grupos e papéis cadastrados no servidor (API de Administração — `GET /admin/api/v1/groups` e `/roles`, paginada) e preenche um seletor; ao alternar o mecanismo, a lista troca entre papéis e grupos. |
 | **Abrir Script / Sub-processo** | Botões no painel de propriedades abrem o `.js` correspondente ou o preview recursivo do processo filho. |
 | **Formulário vinculado** | O painel de propriedades exibe o formulário do processo (`cardIndex`) com botão **Abrir** que revela a pasta do formulário no Explorer. |
 | **Overlay de validação** | Atividades com erros ganham stroke vermelho e badge numérico; avisos em laranja. O painel lista os issues da atividade selecionada. |

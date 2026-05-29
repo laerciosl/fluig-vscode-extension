@@ -61,6 +61,10 @@ export {
 // User
 export { getUser } from './hapi/user.client';
 
+// Orgchart (grupos e papéis)
+export { apiFindGroups, apiFindRoles } from './hapi/orgchart.client';
+export type { OrgGroupDTO, OrgRoleDTO } from './hapi/orgchart.client';
+
 // Dataset API
 export {
     apiFindAllDatasets,
