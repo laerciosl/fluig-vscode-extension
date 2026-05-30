@@ -351,10 +351,8 @@ class WorkflowPreviewPanel {
     }
 
     private async openScript(scriptFileName: string): Promise<void> {
-        const scriptUri = vscode.Uri.file(
-            join(dirname(this.processUri.fsPath), 'scripts', scriptFileName)
-        );
-        if (!existsSync(scriptUri.fsPath)) {
+        const scriptUri = resolveScriptUri(this.processUri.fsPath, scriptFileName);
+        if (!scriptUri) {
             vscode.window.showWarningMessage(
                 `Script "${scriptFileName}" não encontrado em workflow/scripts/. Importe-o do Fluig primeiro.`
             );
@@ -364,10 +362,8 @@ class WorkflowPreviewPanel {
     }
 
     private async openSubProcess(processId: string): Promise<void> {
-        const candidate = vscode.Uri.file(
-            join(dirname(this.processUri.fsPath), `${processId}.process`)
-        );
-        if (!existsSync(candidate.fsPath)) {
+        const candidate = resolveSubProcessUri(this.processUri.fsPath, processId);
+        if (!candidate) {
             vscode.window.showWarningMessage(
                 `Sub-processo "${processId}.process" não encontrado em workflow/.`
             );
@@ -404,6 +400,38 @@ function resolveFormUri(processFsPath: string, formName: string): vscode.Uri | u
         for (const c of candidates) {
             if (existsSync(c)) { return vscode.Uri.file(c); }
         }
+        const parent = dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
+    }
+    return undefined;
+}
+
+/**
+ * Resolve `workflow/scripts/<scriptFileName>` subindo até 5 níveis a partir
+ * do `.process`. Necessário porque o `.process` pode estar mais fundo
+ * (ex.: `workflow/diagrams/X.process`) enquanto a pasta `scripts/` continua
+ * em `workflow/`. Mesmo padrão de `resolveFormUri`.
+ */
+function resolveScriptUri(processFsPath: string, scriptFileName: string): vscode.Uri | undefined {
+    let dir = dirname(processFsPath);
+    for (let i = 0; i < 5; i++) {
+        const candidate = join(dir, 'scripts', scriptFileName);
+        if (existsSync(candidate)) { return vscode.Uri.file(candidate); }
+        const parent = dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
+    }
+    return undefined;
+}
+
+/** Resolve `<processId>.process` ao lado do `.process` atual, subindo até 5 níveis. */
+function resolveSubProcessUri(processFsPath: string, processId: string): vscode.Uri | undefined {
+    const fileName = `${processId}.process`;
+    let dir = dirname(processFsPath);
+    for (let i = 0; i < 5; i++) {
+        const candidate = join(dir, fileName);
+        if (existsSync(candidate)) { return vscode.Uri.file(candidate); }
         const parent = dirname(dir);
         if (parent === dir) { break; }
         dir = parent;
